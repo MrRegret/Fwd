@@ -89,6 +89,9 @@ async function getRandomVideo(params = {}) {
             }
         });
 
+        console.log("API响应状态码:", response.status);
+        console.log("API响应数据预览:", JSON.stringify(response.data, null, 2));
+
         // 响应数据验证
         if (!response.data || !response.data.videos || response.data.videos.length === 0) {
             throw new Error("API返回数据格式错误或无视频数据");
@@ -97,16 +100,17 @@ async function getRandomVideo(params = {}) {
         const video = response.data.videos[0];
         const videoUrl = video.video_files.find(f => f.quality === 'hd')?.link || video.video_files[0].link;
         
-        // 返回标准化数据（严格遵循示例格式）
+        // 最简数据模型（严格匹配示例）
         return [{
             id: video.id.toString(),
-            type: "video",
+            type: "url",
             title: "Pexels视频壁纸",
             coverUrl: video.image,
             videoUrl: videoUrl
         }];
     } catch (error) {
-        console.error("获取随机视频失败:", error);
+        console.error("获取随机视频失败:", error.message);
+        console.error("错误堆栈:", error.stack);
         throw error;
     }
 }
@@ -130,25 +134,29 @@ async function searchVideos(params = {}) {
             }
         });
 
+        console.log("搜索API响应状态码:", response.status);
+        console.log("搜索API响应数据预览:", JSON.stringify(response.data, null, 2));
+
         // 响应数据验证
         if (!response.data || !response.data.videos || response.data.videos.length === 0) {
             throw new Error("未找到匹配的视频");
         }
 
-        // 标准化返回数据（严格参照示例格式）
+        // 最简数据模型（严格匹配示例）
         return response.data.videos.map(video => {
             const videoUrl = video.video_files.find(f => f.quality === 'hd')?.link || video.video_files[0].link;
             
             return {
                 id: video.id.toString(),
-                type: "video",
+                type: "url",
                 title: "Pexels视频壁纸",
                 coverUrl: video.image,
                 videoUrl: videoUrl
             };
         });
     } catch (error) {
-        console.error("视频搜索失败:", error);
+        console.error("视频搜索失败:", error.message);
+        console.error("错误堆栈:", error.stack);
         throw error;
     }
 }
