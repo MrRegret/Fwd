@@ -2,13 +2,13 @@ var WidgetMetadata = {
     id: "pexels-video-wallpaper",
     title: "Pexels横版视频壁纸",
     description: "从Pexels获取高质量横版视频壁纸",
-    author: "VEUS.5",
+    author: "Your Name",
     site: "https://www.pexels.com",
     version: "1.0.0",
     requiredVersion: "0.0.1",
     modules: [
         {
-            name: "random_video",
+            // 删除:name属性
             title: "随机视频壁纸",
             description: "随机获取Pexels横版视频壁纸",
             requiresWebView: false,
@@ -31,7 +31,7 @@ var WidgetMetadata = {
             ]
         },
         {
-            name: "search_video",
+            // 删除:name属性
             title: "视频搜索",
             description: "通过关键词搜索视频壁纸",
             requiresWebView: false,
@@ -89,8 +89,9 @@ async function getRandomVideo(params = {}) {
             }
         });
 
-        console.log("API响应状态码:", response.status);
-        console.log("API响应数据预览:", JSON.stringify(response.data, null, 2));
+        // 删除:详细的调试日志
+        // 删除:console.log("API响应状态码:", response.status);
+        // 删除:console.log("API响应数据预览:", JSON.stringify(response.data, null, 2));
 
         // 响应数据验证
         if (!response.data || !response.data.videos || response.data.videos.length === 0) {
@@ -100,17 +101,18 @@ async function getRandomVideo(params = {}) {
         const video = response.data.videos[0];
         const videoUrl = video.video_files.find(f => f.quality === 'hd')?.link || video.video_files[0].link;
         
-        // 最简数据模型（严格匹配示例）
+        // 严格匹配示例数据模型
         return [{
             id: video.id.toString(),
-            type: "url",
+            type: "video",  // 改为与示例完全一致的"video"类型
             title: "Pexels视频壁纸",
             coverUrl: video.image,
             videoUrl: videoUrl
         }];
     } catch (error) {
-        console.error("获取随机视频失败:", error.message);
-        console.error("错误堆栈:", error.stack);
+        // 删除:详细的错误日志
+        // 删除:console.error("获取随机视频失败:", error.message);
+        // 删除:console.error("错误堆栈:", error.stack);
         throw error;
     }
 }
@@ -134,29 +136,28 @@ async function searchVideos(params = {}) {
             }
         });
 
-        console.log("搜索API响应状态码:", response.status);
-        console.log("搜索API响应数据预览:", JSON.stringify(response.data, null, 2));
+        // 删除:详细的调试日志
+        // 删除:console.log("搜索API响应状态码:", response.status);
+        // 删除:console.log("搜索API响应数据预览:", JSON.stringify(response.data, null, 2));
 
         // 响应数据验证
         if (!response.data || !response.data.videos || response.data.videos.length === 0) {
             throw new Error("未找到匹配的视频");
         }
 
-        // 最简数据模型（严格匹配示例）
+        // 严格匹配示例数据模型
         return response.data.videos.map(video => {
             const videoUrl = video.video_files.find(f => f.quality === 'hd')?.link || video.video_files[0].link;
             
             return {
                 id: video.id.toString(),
-                type: "url",
+                type: "video",  // 改为与示例完全一致的"video"类型
                 title: "Pexels视频壁纸",
                 coverUrl: video.image,
                 videoUrl: videoUrl
             };
         });
     } catch (error) {
-        console.error("视频搜索失败:", error.message);
-        console.error("错误堆栈:", error.stack);
         throw error;
     }
 }
