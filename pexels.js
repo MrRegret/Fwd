@@ -1,15 +1,16 @@
 var WidgetMetadata = {
-    id: "pexels-video-widget",
-    title: "Pexels 视频组件",
-    description: "从Pexels获取高质量横版视频",
-    author: "用户自定义",
+    id: "pexels-video-wallpaper",
+    title: "Pexels横版视频壁纸",
+    description: "从Pexels获取高质量横版视频壁纸",
+    author: "VEUS.5",
     site: "https://www.pexels.com",
     version: "1.0.0",
-    requiredVersion: "1.0.0",
+    requiredVersion: "0.0.1",
     modules: [
         {
-            title: "随机视频",
-            description: "随机获取高质量横版视频",
+            name: "random_video",
+            title: "随机视频壁纸",
+            description: "随机获取Pexels横版视频壁纸",
             requiresWebView: false,
             functionName: "getRandomVideo",
             params: [
@@ -30,8 +31,9 @@ var WidgetMetadata = {
             ]
         },
         {
-            title: "关键词搜索",
-            description: "通过关键词搜索视频",
+            name: "search_video",
+            title: "视频搜索",
+            description: "通过关键词搜索视频壁纸",
             requiresWebView: false,
             functionName: "searchVideos",
             params: [
@@ -87,25 +89,21 @@ async function getRandomVideo(params = {}) {
             }
         });
 
-        // 解析响应数据
+        // 响应数据验证
         if (!response.data || !response.data.videos || response.data.videos.length === 0) {
-            throw new Error("未找到视频数据");
+            throw new Error("API返回数据格式错误或无视频数据");
         }
 
         const video = response.data.videos[0];
         const videoUrl = video.video_files.find(f => f.quality === 'hd')?.link || video.video_files[0].link;
-
-        // 返回标准化数据
+        
+        // 返回标准化数据（严格遵循示例格式）
         return [{
-            id: `pexels-${video.id}`,
-            type: "url",
-            title: video.user.name,
-            posterPath: video.image,
-            backdropPath: video.image,
-            releaseDate: video.date_captured,
-            mediaType: "video",
-            videoUrl: videoUrl,
-            link: video.url
+            id: video.id.toString(),
+            type: "video",
+            title: "Pexels视频壁纸",
+            coverUrl: video.image,
+            videoUrl: videoUrl
         }];
     } catch (error) {
         console.error("获取随机视频失败:", error);
@@ -132,25 +130,21 @@ async function searchVideos(params = {}) {
             }
         });
 
-        // 解析响应数据
+        // 响应数据验证
         if (!response.data || !response.data.videos || response.data.videos.length === 0) {
             throw new Error("未找到匹配的视频");
         }
 
-        // 标准化返回数据
+        // 标准化返回数据（严格参照示例格式）
         return response.data.videos.map(video => {
             const videoUrl = video.video_files.find(f => f.quality === 'hd')?.link || video.video_files[0].link;
             
             return {
-                id: `pexels-${video.id}`,
-                type: "url",
-                title: video.user.name,
-                posterPath: video.image,
-                backdropPath: video.image,
-                releaseDate: video.date_captured,
-                mediaType: "video",
-                videoUrl: videoUrl,
-                link: video.url
+                id: video.id.toString(),
+                type: "video",
+                title: "Pexels视频壁纸",
+                coverUrl: video.image,
+                videoUrl: videoUrl
             };
         });
     } catch (error) {
