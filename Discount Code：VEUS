@@ -1,22 +1,20 @@
 /* =====================
-   WidgetMetadata（ForwardWidget 规范）
+   ForwardWidget 元数据
    ===================== */
 var WidgetMetadata = {
   id: "yuanqi.wallpaper",
   title: "元气壁纸",
-  description: "Apple TV Topshelf 动态壁纸模块",
-  author: "VEUS",
+  description: "基于正则解析的元气壁纸获取工具",
+  author: "改造版",
   site: "https://mbizhi.cheetahfun.com",
-  version: "1.0.3",
+  version: "1.0.4",
   requiredVersion: "0.0.1",
-  detailCacheDuration: 60,
   modules: [
     {
       title: "获取壁纸列表",
-      description: "按分类、页码拉取壁纸",
+      description: "根据分类、页码等参数获取壁纸列表",
       requiresWebView: false,
       functionName: "getWallpaperList",
-      sectionMode: false,
       cacheDuration: 3600,
       params: [
         {
@@ -27,6 +25,8 @@ var WidgetMetadata = {
           value: "all",
           enumOptions: [
             { title: "全部", value: "all" },
+            { title: "动态壁纸", value: "dynamic" },
+            { title: "静态壁纸", value: "static" },
             { title: "4K", value: "4k" },
             { title: "风景", value: "landscape" },
             { title: "动漫", value: "anime" },
@@ -50,8 +50,8 @@ var WidgetMetadata = {
     functionName: "searchWallpaper",
     params: [
       {
-        name: "wd",
-        title: "关键词",
+        name: "keyword",
+        title: "搜索关键词",
         type: "input",
         description: "输入要搜索的壁纸关键词",
         value: ""
@@ -67,65 +67,97 @@ var WidgetMetadata = {
 };
 
 /* =====================
-   常量 & 工具
+   常量
    ===================== */
 const BASE_URL = "https://mbizhi.cheetahfun.com";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36";
 
+/* =====================
+   URL 构造
+   ===================== */
 function buildWallpaperUrl(category = "all", page = 1) {
-  if (category === "all") {
-    return `${BASE_URL}/dn/d/${page > 1 ? `page_${page}.html` : ""}`;
-  }
+  if (category === "all") return `${BASE_URL}/dn/d/${page > 1 ? `page_${page}.html` : ""}`;
   const map = {
-    "4k": "/dn/4k/",
-    landscape: "/dn/fj/",
-    anime: "/dn/dm/",
-    beauty: "/dn/mn/",
-    animal: "/dn/dw/",
-    game: "/dn/yx/",
-    fresh: "/dn/xqx/"
+    dynamic: "/dt/",
+    static: "/jt/",
+    "4k": "/4k/",
+    landscape: "/fj/",
+    anime: "/dm/",
+    beauty: "/mn/",
+    animal: "/dw/",
+    game: "/yx/",
+    fresh: "/xqx/"
   };
-  const path = map[category] || "/dn/d/";
-  return `${BASE_URL}${path}${page > 1 ? `page_${page}.html` : ""}`;
+  return `${BASE_URL}${map[category] || "/dn/d/"}${page > 1 ? `page_${page}.html` : ""}`;
 }
 
-function parseWallpaperList(html) {
+/* =====================
+   通用正则解析器（核心）
+   ===================== */
+function parseWallpaperFromHtml(html) {
   const list = [];
   try {
-    const $ = Widget.html.load(html);
-    $(".wallpaper-item").slice(0, 50).each((i, el) => {
-      const $el = $(el);
-      const $a = $el.find("a.preview");
-      const href = $a.attr("href");
-      const detailUrl = href.startsWith("http") ? href : BASE_URL + href;
+    const itemRegex = /<div[^>]*class="[^"]*item[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+    const linkRegex = /<a[^>]+href="([^"]+)"[^>]*>/i;
+    const imgRegex = /<img[^>]+src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/i;
+    const titleRegex = /<(?:h\d|p|span)[^>]*(?:class="[^"]*title[^"]*"[^>]*)?>(.*?)<\/(?:h\d|p|span)>/i;
 
-      const $img = $a.find("img.lazy");
-      const cover = $img.attr("data-src") || $img.attr("src");
-      const coverUrl = cover.startsWith("http") ? cover : BASE_URL + cover;
+    let itemMatch;
+    let idx = 0;
+    while ((itemMatch = itemRegex.exec(html)) !== null && idx < 50) {
+      idx++;
+      const block = itemMatch[1];
 
-      const title = $el.find(".title").text().trim() || `壁纸 ${i + 1}`;
-      const isDynamic = /动态|视频|mp4|webm/i.test(
-        $el.text() + " " + detailUrl
-      );
+      // 链接
+      const linkMatch = linkRegex.exec(block);
+      const detailUrl = linkMatch
+        ? linkMatch[1].startsWith("http")
+          ? linkMatch[1]
+          : BASE_URL + linkMatch[1]
+        : "";
 
-      list.push({
-        id: detailUrl,
-        type: "url",
-        title,
-        posterPath: coverUrl,
-        backdropPath: coverUrl,
-        mediaType: isDynamic ? "tv" : "movie",
-        genreTitle: isDynamic ? "动态壁纸" : "静态壁纸",
-        description: title,
-        link: detailUrl
-      });
-    });
+      // 图片 & 标题
+      const imgMatch = imgRegex.exec(block);
+      const imageUrl = imgMatch
+        ? imgMatch[1].startsWith("http")
+          ? imgMatch[1]
+          : BASE_URL + imgMatch[1]
+        : "";
+      let title = imgMatch?.[2]?.trim() || `壁纸 ${idx}`;
+
+      // 备用标题
+      const titleMatch = titleRegex.exec(block);
+      if (titleMatch) {
+        title = titleMatch[1].replace(/<[^>]*>/g, "").trim() || title;
+      }
+
+      // 动态壁纸判断
+      const isDynamic =
+        /动态|视频|mp4|webm/i.test(block + detailUrl) || detailUrl.includes("/dn/");
+
+      if (detailUrl && imageUrl) {
+        list.push({
+          id: detailUrl,
+          type: "url",
+          title,
+          posterPath: imageUrl,
+          backdropPath: imageUrl,
+          mediaType: isDynamic ? "tv" : "movie",
+          genreTitle: isDynamic ? "动态壁纸" : "静态壁纸",
+          description: title,
+          link: detailUrl
+        });
+      }
+    }
   } catch (e) {
-    console.error("parseWallpaperList error:", e.message);
+    console.error("parseWallpaperFromHtml error:", e.message);
   }
   return list;
 }
 
+/* =====================
+   详情解析（正则版）
+   ===================== */
 function parseWallpaperDetail(html, url) {
   const detail = {
     id: url,
@@ -136,38 +168,46 @@ function parseWallpaperDetail(html, url) {
     backdropPath: "",
     videoUrl: null,
     mediaType: "movie",
-    genreTitle: "",
     link: url
   };
-  try {
-    const $ = Widget.html.load(html);
-    detail.title =
-      $("title").text().replace(/\s*-\s*元气壁纸.*$/i, "").trim() || "壁纸";
 
-    const $video = $("#wallpaper-video");
-    const videoSrc = $video.find("source").attr("src") || $video.attr("src");
-    if (videoSrc) {
-      detail.videoUrl = videoSrc.startsWith("http")
-        ? videoSrc
-        : BASE_URL + videoSrc;
-      detail.mediaType = "tv";
-      detail.genreTitle = "动态壁纸";
+  try {
+    // 标题
+    const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+    if (titleMatch) {
+      detail.title = titleMatch[1].replace(/\s*-\s*元气壁纸.*$/i, "").trim();
     }
 
-    detail.posterPath = detail.backdropPath =
-      $video.attr("poster") ||
-      $('meta[property="og:image"]').attr("content") ||
-      $('img[alt]').first().attr("src") ||
-      "";
+    // 描述
+    const descMatch = html.match(/<meta[^>]+name="description"[^>]+content="([^"]*)"[^>]*>/i);
+    if (descMatch) detail.description = descMatch[1];
 
-    const bodyText = $("body").text();
-    const res = bodyText.match(/(\d{3,4}[x×]\d{3,4})/i);
-    const size = bodyText.match(/(\d+(?:\.\d+)?\s*[KMGT]?B)/i);
-    const date = bodyText.match(/(\d{4}-\d{1,2}-\d{1,2})/);
+    // 视频 / 高清图
+    const videoMatch =
+      html.match(/<video[^>]+src="([^"]+)"/i) ||
+      html.match(/<source[^>]+src="([^"]+)"/i);
+    if (videoMatch) {
+      detail.videoUrl = videoMatch[1].startsWith("http")
+        ? videoMatch[1]
+        : BASE_URL + videoMatch[1];
+      detail.mediaType = "tv";
+    }
+
+    const imgMatch =
+      html.match(/<img[^>]+src="([^"]*(?:hd|4k|wallpaper)[^"]*)"/i) ||
+      html.match(/<a[^>]+href="([^"]*\.(?:jpg|jpeg|png|webp))"/i);
+    if (imgMatch) {
+      detail.posterPath = detail.backdropPath = imgMatch[1].startsWith("http")
+        ? imgMatch[1]
+        : BASE_URL + imgMatch[1];
+    }
+
+    // 分辨率 / 大小
+    const res = html.match(/(\d{3,4}[x×]\d{3,4})/i);
+    const size = html.match(/(\d+(?:\.\d+)?\s*[KMGT]?B)/i);
     detail.description = [
       res ? `分辨率: ${res[1]}` : "",
-      size ? `大小: ${size[1]}` : "",
-      date ? `发布日期: ${date[1]}` : ""
+      size ? `大小: ${size[1]}` : ""
     ]
       .filter(Boolean)
       .join(" ");
@@ -178,7 +218,7 @@ function parseWallpaperDetail(html, url) {
 }
 
 /* =====================
-   对外 API（无 Widget.log）
+   ForwardWidget 对外 API
    ===================== */
 async function getWallpaperList(params = {}) {
   const category = params.category || "all";
@@ -188,19 +228,19 @@ async function getWallpaperList(params = {}) {
     headers: { "User-Agent": UA, Referer: BASE_URL }
   });
   if (!res?.data) throw new Error("网络异常");
-  return parseWallpaperList(res.data);
+  return parseWallpaperFromHtml(res.data);
 }
 
 async function searchWallpaper(params = {}) {
-  const keyword = (params.wd || "").trim();
+  const keyword = params.keyword || params.wd || "";
   const page = Math.max(parseInt(params.pg) || 1, 1);
-  if (!keyword) throw new Error("关键词不能为空");
-  const url = `${BASE_URL}/search?keyword=${encodeURIComponent(keyword)}&page=${page}`;
+  if (!keyword.trim()) throw new Error("关键词不能为空");
+  const url = `${BASE_URL}/search?q=${encodeURIComponent(keyword)}&page=${page}`;
   const res = await Widget.http.get(url, {
     headers: { "User-Agent": UA, Referer: BASE_URL }
   });
-  if (!res?.data) throw new Error("网络异常");
-  return parseWallpaperList(res.data);
+  if (!res?.data) throw new Error("搜索页异常");
+  return parseWallpaperFromHtml(res.data); // 同一个正则器
 }
 
 async function loadDetail(detailUrl) {
@@ -208,6 +248,6 @@ async function loadDetail(detailUrl) {
   const res = await Widget.http.get(detailUrl, {
     headers: { "User-Agent": UA, Referer: BASE_URL }
   });
-  if (!res?.data) throw new Error("网络异常");
+  if (!res?.data) throw new Error("详情页异常");
   return parseWallpaperDetail(res.data, detailUrl);
 }
