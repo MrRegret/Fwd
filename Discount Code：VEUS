@@ -1,13 +1,11 @@
-/*  =====================
-    元数据（ForwardWidget 规范）
-    ===================== */
+
 var WidgetMetadata = {
   id: "yuanqi.wallpaper",
   title: "元气壁纸",
   description: "Apple TV Topshelf 动态壁纸模块",
   author: "VEUS",
   site: "https://mbizhi.cheetahfun.com",
-  version: "1.0.1",
+  version: "1.0.2",
   requiredVersion: "0.0.1",
   detailCacheDuration: 60,
   modules: [
@@ -66,13 +64,13 @@ var WidgetMetadata = {
   }
 };
 
-/*  =====================
-    常量 & 工具函数
-    ===================== */
+/* =====================
+   常量 & 工具
+   ===================== */
 const BASE_URL = "https://mbizhi.cheetahfun.com";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36";
 
-/* 构建列表 / 搜索 URL */
+/* 构造列表或搜索 URL */
 function buildWallpaperUrl(category = "all", page = 1) {
   if (category === "all") {
     return `${BASE_URL}/dn/d/${page > 1 ? `page_${page}.html` : ""}`;
@@ -123,7 +121,7 @@ function parseWallpaperList(html) {
       });
     });
   } catch (e) {
-    Widget.log("parseWallpaperList error: " + e.message);
+    console.error("parseWallpaperList error:", e.message);
   }
   return list;
 }
@@ -147,7 +145,7 @@ function parseWallpaperDetail(html, url) {
     detail.title =
       $("title").text().replace(/\s*-\s*元气壁纸.*$/i, "").trim() || "壁纸";
 
-    /* 视频 */
+    /* 视频地址 */
     const $video = $("#wallpaper-video");
     const videoSrc = $video.find("source").attr("src") || $video.attr("src");
     if (videoSrc) {
@@ -178,20 +176,22 @@ function parseWallpaperDetail(html, url) {
       .filter(Boolean)
       .join(" ");
   } catch (e) {
-    Widget.log("parseWallpaperDetail error: " + e.message);
+    console.error("parseWallpaperDetail error:", e.message);
   }
   return detail;
 }
 
-/*  =====================
-    对外函数
-    ===================== */
+/* =====================
+   对外 API
+   ===================== */
 async function getWallpaperList(params = {}) {
   const category = params.category || "all";
   const page = Math.max(parseInt(params.pg) || 1, 1);
   const url = buildWallpaperUrl(category, page);
-  Widget.log("getWallpaperList: " + url);
-  const res = await Widget.http.get(url, { headers: { "User-Agent": UA, Referer: BASE_URL } });
+  console.log("getWallpaperList:", url);
+  const res = await Widget.http.get(url, {
+    headers: { "User-Agent": UA, Referer: BASE_URL }
+  });
   if (!res?.data) throw new Error("网络异常");
   return parseWallpaperList(res.data);
 }
@@ -201,16 +201,20 @@ async function searchWallpaper(params = {}) {
   const page = Math.max(parseInt(params.pg) || 1, 1);
   if (!keyword) throw new Error("关键词不能为空");
   const url = `${BASE_URL}/search?keyword=${encodeURIComponent(keyword)}&page=${page}`;
-  Widget.log("searchWallpaper: " + url);
-  const res = await Widget.http.get(url, { headers: { "User-Agent": UA, Referer: BASE_URL } });
+  console.log("searchWallpaper:", url);
+  const res = await Widget.http.get(url, {
+    headers: { "User-Agent": UA, Referer: BASE_URL }
+  });
   if (!res?.data) throw new Error("网络异常");
   return parseWallpaperList(res.data);
 }
 
 async function loadDetail(detailUrl) {
   if (!detailUrl || typeof detailUrl !== "string") throw new Error("无效详情链接");
-  Widget.log("loadDetail: " + detailUrl);
-  const res = await Widget.http.get(detailUrl, { headers: { "User-Agent": UA, Referer: BASE_URL } });
+  console.log("loadDetail:", detailUrl);
+  const res = await Widget.http.get(detailUrl, {
+    headers: { "User-Agent": UA, Referer: BASE_URL }
+  });
   if (!res?.data) throw new Error("网络异常");
   return parseWallpaperDetail(res.data, detailUrl);
 }
