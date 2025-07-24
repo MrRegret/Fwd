@@ -6,23 +6,20 @@ var WidgetMetadata = {
   site: "https://mbizhi.cheetahfun.com/",
   version: "1.0.0",
   requiredVersion: "0.0.1",
-  detailCacheDuration: 60,
   modules: [
     {
       title: "获取壁纸列表",
       description: "根据分类、页码等参数获取壁纸列表",
       requiresWebView: false,
       functionName: "getWallpaperList",
-      sectionMode: false,
-      cacheDuration: 3600,
       params: [
         {
           name: "sortBy",
           title: "壁纸分类",
-          type: "enumeration",
+          type: "input",
           description: "选择壁纸分类",
           value: "all",
-          enumOptions: [
+          placeholders: [
             { title: "全部", value: "all" },
             { title: "动态壁纸", value: "dynamic" },
             { title: "静态壁纸", value: "static" },
@@ -108,26 +105,152 @@ function buildWallpaperUrl(sortBy = "all", page = 1) {
 }
 
 /**
- * 使用Cheerio解析HTML页面中的壁纸信息
+ * 解析壁纸项目 - 类似原脚本的parseItemFromListApi函数
+ */
+function parseWallpaperItem(element, $, baseUrl, index) {
+  try {
+    const $item = $(element);
+    
+    // 提取链接 - 多种方式
+    let detailUrl = '';
+    
+    // 方式1: 从href属性获取
+    detailUrl = $item.attr('href') || '';
+    
+    // 方式2: 从子元素a标签获取
+    if (!detailUrl) {
+      const $link = $item.find('a').first();
+      detailUrl = $link.attr('href') || '';
+    }
+    
+    // 方式3: 从onclick事件中提取
+    if (!detailUrl) {
+      const onclick = $item.attr('onclick') || '';
+      const urlMatch = onclick.match(/['"](\/[^'"]+)['"]/);
+      if (urlMatch) {
+        detailUrl = urlMatch[1];
+      }
+    }
+    
+    // 确保URL完整
+    if (detailUrl && !detailUrl.startsWith('http')) {
+      detailUrl = baseUrl + detailUrl;
+    }
+    
+    if (!detailUrl) {
+      return null; // 没有链接就跳过
+    }
+    
+    // 提取图片
+    let posterPath = '';
+    const imgSelectors = [
+      'img[src*="thumb"]',
+      'img[src*="preview"]',
+      'img.lazy',
+      'img[data-src]',
+      'img[data-original]',
+      'img:not([src*="icon"]):not([src*="tag"])',
+      'img'
+    ];
+    
+    for (const imgSelector of imgSelectors) {
+      const $img = $item.find(imgSelector).first();
+      if ($img.length > 0) {
+        posterPath = $img.attr('src') || $img.attr('data-src') || $img.attr('data-original') || '';
+        
+        if (posterPath && 
+            !posterPath.includes('/icon/') && 
+            !posterPath.includes('/tag/') && 
+            !posterPath.includes('dynamic.png') &&
+            !posterPath.includes('static.png') &&
+            posterPath.length > 10) {
+          break;
+        }
+        posterPath = '';
+      }
+    }
+    
+    if (posterPath && !posterPath.startsWith('http')) {
+      posterPath = baseUrl + posterPath;
+    }
+    
+    // 提取标题
+    let title = '';
+    const titleSources = [
+      () => $item.find('img').first().attr('alt'),
+      () => $item.find('.title, .name').first().text().trim(),
+      () => $item.find('h3, h4, h5').first().text().trim(),
+      () => $item.find('a').first().attr('title'),
+      () => {
+        const urlMatch = detailUrl.match(/pd(\d+)\.html/);
+        return urlMatch ? `壁纸 ${urlMatch[1]}` : `壁纸 ${index + 1}`;
+      }
+    ];
+    
+    for (const getTitle of titleSources) {
+      const titleCandidate = getTitle();
+      if (titleCandidate && titleCandidate.trim() && titleCandidate.length > 2) {
+        title = titleCandidate.trim();
+        break;
+      }
+    }
+    
+    // 判断媒体类型
+    const isDynamic = detailUrl.includes('/dn/') || 
+                     $item.text().toLowerCase().includes('动态');
+    
+    // 提取分类
+    let genreTitle = '';
+    if (detailUrl.includes('/dn/c1d/')) genreTitle = '4K';
+    else if (detailUrl.includes('/dn/c2d/')) genreTitle = '动漫';
+    else if (detailUrl.includes('/dn/c3d/')) genreTitle = '风景';
+    else if (detailUrl.includes('/dn/c4d/')) genreTitle = '美女';
+    else if (detailUrl.includes('/dn/c5d/')) genreTitle = 'AI';
+    else if (detailUrl.includes('/dn/c6d/')) genreTitle = '动物';
+    else if (detailUrl.includes('/dn/c7d/')) genreTitle = '游戏';
+    else if (detailUrl.includes('/dn/c8d/')) genreTitle = '小清新';
+    else if (detailUrl.includes('/dn/c11d/')) genreTitle = '其他';
+    else genreTitle = isDynamic ? '动态壁纸' : '静态壁纸';
+    
+    // 返回符合原脚本格式的对象
+    return {
+      id: detailUrl,
+      type: "url",
+      title: title || `壁纸 ${index + 1}`,
+      posterPath: posterPath,
+      backdropPath: posterPath, 
+      releaseDate: "",
+      mediaType: isDynamic ? "tv" : "movie",
+      genreTitle: genreTitle,
+      description: `${genreTitle} - ${isDynamic ? "动态壁纸" : "静态壁纸"}`,
+      link: detailUrl
+    };
+    
+  } catch (error) {
+    console.error(`parseWallpaperItem: 解析项目 ${index} 时出错:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * 解析HTML页面中的壁纸信息 - 对应原脚本结构
  */
 function parseWallpaperFromHtml(html, baseUrl = BASE_URL) {
   const wallpapers = [];
   
   try {
-    // 使用Widget内置的cheerio进行DOM解析
     const $ = Widget.html.load(html);
-    
     console.log("parseWallpaperFromHtml: 开始解析HTML内容");
     
-    // 查找壁纸项目容器 - 根据元气壁纸实际HTML结构
+    // 查找壁纸项目容器
     const itemSelectors = [
-      'li',                    // 列表项
-      '.item',                 // 通用item类
-      '.wallpaper-item',       // 壁纸项目类
-      '.pic-item',             // 图片项目类
-      'div[onclick]',          // 带点击事件的div
-      'a[href*="/dn/pd"]',     // 指向详情页的链接
-      'a[href*="/jt/pj"]'      // 静态壁纸详情页链接
+      'li',
+      '.item', 
+      '.wallpaper-item',
+      '.pic-item',
+      'div[onclick]',
+      'a[href*="/dn/pd"]',
+      'a[href*="/jt/pj"]'
     ];
     
     let $items = $();
@@ -148,163 +271,12 @@ function parseWallpaperFromHtml(html, baseUrl = BASE_URL) {
     }
     
     $items.each((index, element) => {
-      if (index >= 50) return false; // 限制解析数量
+      if (index >= 50) return false;
       
-      try {
-        const $item = $(element);
-        
-        // 提取链接 - 多种方式
-        let detailUrl = '';
-        
-        // 方式1: 从href属性获取
-        detailUrl = $item.attr('href') || '';
-        
-        // 方式2: 从子元素a标签获取
-        if (!detailUrl) {
-          const $link = $item.find('a').first();
-          detailUrl = $link.attr('href') || '';
-        }
-        
-        // 方式3: 从onclick事件中提取
-        if (!detailUrl) {
-          const onclick = $item.attr('onclick') || '';
-          const urlMatch = onclick.match(/['"](\/[^'"]+)['"]/);
-          if (urlMatch) {
-            detailUrl = urlMatch[1];
-          }
-        }
-        
-        // 确保URL完整
-        if (detailUrl && !detailUrl.startsWith('http')) {
-          detailUrl = baseUrl + detailUrl;
-        }
-        
-        if (!detailUrl) {
-          console.warn(`parseWallpaperFromHtml: 项目 ${index} 未找到链接`);
-          return; // 跳过这个项目
-        }
-        
-        // 提取图片 - 多种方式，避免获取角标
-        let imageUrl = '';
-        
-        // 尝试多种图片选择器
-        const imgSelectors = [
-          'img[src*="thumb"]',        // 缩略图
-          'img[src*="preview"]',      // 预览图
-          'img.lazy',                 // 懒加载图片
-          'img[data-src]',            // data-src属性
-          'img[data-original]',       // data-original属性
-          'img:not([src*="icon"]):not([src*="tag"]):not([src*="label"])', // 排除图标
-          'img'                       // 备用
-        ];
-        
-        for (const imgSelector of imgSelectors) {
-          const $img = $item.find(imgSelector).first();
-          if ($img.length > 0) {
-            imageUrl = $img.attr('src') || $img.attr('data-src') || $img.attr('data-original') || '';
-            
-            // 过滤掉明显的角标和图标图片
-            if (imageUrl && 
-                !imageUrl.includes('/icon/') && 
-                !imageUrl.includes('/tag/') && 
-                !imageUrl.includes('/label/') &&
-                !imageUrl.includes('dynamic.png') &&
-                !imageUrl.includes('static.png') &&
-                !imageUrl.includes('play.png') &&
-                imageUrl.length > 10) {
-              break;
-            }
-            imageUrl = ''; // 重置，继续查找
-          }
-        }
-        
-        // 确保图片URL完整
-        if (imageUrl && !imageUrl.startsWith('http')) {
-          imageUrl = baseUrl + imageUrl;
-        }
-        
-        if (!imageUrl) {
-          console.warn(`parseWallpaperFromHtml: 项目 ${index} 未找到有效图片`);
-        }
-        
-        // 提取标题 - 多种来源
-        let title = '';
-        
-        // 尝试从多个地方获取标题
-        const titleSources = [
-          () => $item.find('img').first().attr('alt'),
-          () => $item.find('.title, .name, .wallpaper-title').first().text().trim(),
-          () => $item.find('h3, h4, h5, p.title').first().text().trim(),
-          () => $item.find('a').first().attr('title'),
-          () => $item.attr('title'),
-          () => {
-            // 从URL中提取ID作为标题
-            const urlMatch = detailUrl.match(/pd(\d+)\.html/);
-            return urlMatch ? `壁纸 ${urlMatch[1]}` : '';
-          }
-        ];
-        
-        for (const getTitle of titleSources) {
-          const titleCandidate = getTitle();
-          if (titleCandidate && titleCandidate.trim() && 
-              titleCandidate.length > 2 &&
-              !titleCandidate.includes('动态') && 
-              !titleCandidate.includes('静态')) {
-            title = titleCandidate.trim();
-            break;
-          }
-        }
-        
-        if (!title) {
-          title = `壁纸 ${index + 1}`;
-        }
-        
-        // 判断是否为动态壁纸
-        const itemHtml = $item.html() || '';
-        const itemText = $item.text().toLowerCase();
-        const isDynamic = detailUrl.includes('/dn/') || 
-                         itemText.includes('动态') || 
-                         itemText.includes('视频') || 
-                         itemHtml.includes('play') ||
-                         itemHtml.includes('gif');
-        
-        // 提取分类信息
-        let category = '';
-        if (detailUrl.includes('/dn/c1d/')) category = '4K';
-        else if (detailUrl.includes('/dn/c2d/')) category = '动漫';
-        else if (detailUrl.includes('/dn/c3d/')) category = '风景';
-        else if (detailUrl.includes('/dn/c4d/')) category = '美女';
-        else if (detailUrl.includes('/dn/c5d/')) category = 'AI';
-        else if (detailUrl.includes('/dn/c6d/')) category = '动物';
-        else if (detailUrl.includes('/dn/c7d/')) category = '游戏';
-        else if (detailUrl.includes('/dn/c8d/')) category = '小清新';
-        else if (detailUrl.includes('/dn/c11d/')) category = '其他';
-        else if (detailUrl.includes('/jt/')) category = '静态壁纸';
-        else category = isDynamic ? '动态壁纸' : '壁纸';
-        
-        // 构建返回对象
-        const wallpaperItem = {
-          id: detailUrl,
-          type: "url",
-          title: title,
-          posterPath: imageUrl || '',
-          backdropPath: imageUrl || '',
-          mediaType: isDynamic ? "tv" : "movie",
-          rating: "",
-          genreTitle: category,
-          description: `${category} - ${isDynamic ? "动态壁纸" : "静态壁纸"}`,
-          link: detailUrl,
-          releaseDate: "",
-          duration: 0,
-          durationText: "",
-          previewUrl: ""
-        };
-        
+      const wallpaperItem = parseWallpaperItem(element, $, baseUrl, index);
+      if (wallpaperItem) {
         wallpapers.push(wallpaperItem);
-        console.log(`parseWallpaperFromHtml: 成功解析项目 ${index + 1}: ${title}`);
-        
-      } catch (itemError) {
-        console.error(`parseWallpaperFromHtml: 解析项目 ${index} 时出错:`, itemError.message);
+        console.log(`parseWallpaperFromHtml: 成功解析项目 ${index + 1}: ${wallpaperItem.title}`);
       }
     });
     
@@ -312,101 +284,80 @@ function parseWallpaperFromHtml(html, baseUrl = BASE_URL) {
     
   } catch (error) {
     console.error("parseWallpaperFromHtml: 解析HTML时出错:", error.message);
-    console.error("parseWallpaperFromHtml: 错误堆栈:", error.stack);
   }
   
   return wallpapers;
 }
 
 /**
- * 获取壁纸列表
+ * 获取壁纸列表 - 对应原脚本的getVodList函数
  */
 async function getWallpaperList(params = {}) {
+  const sortBy = params.sortBy || "all";
+  const page = parseInt(params.pg) || 1;
+  
+  if (page < 1) {
+    throw new Error("页码必须大于0");
+  }
+  
+  const requestUrl = buildWallpaperUrl(sortBy, page);
+  console.log(`getWallpaperList: 请求壁纸页面: ${requestUrl}`);
+  console.log(`getWallpaperList: 分类=${sortBy}, 页码=${page}`);
+  
   try {
-    // 参数验证
-    const sortBy = params.sortBy || "all";
-    const page = parseInt(params.pg) || 1;
-    
-    if (page < 1) {
-      throw new Error("页码必须大于0");
-    }
-    
-    const requestUrl = buildWallpaperUrl(sortBy, page);
-    console.log(`getWallpaperList: 请求壁纸页面: ${requestUrl}`);
-    console.log(`getWallpaperList: 分类=${sortBy}, 页码=${page}`);
-    
-    // 发送请求
     const response = await Widget.http.get(requestUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Referer': BASE_URL,
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'same-origin'
+        'Referer': BASE_URL
       }
     });
     
-    // 解析响应
     if (!response || !response.data) {
-      throw new Error("获取页面内容失败");
+      console.error("getWallpaperList: API请求失败，未收到任何数据。URL:", requestUrl);
+      throw new Error("API请求失败: 未收到任何数据。");
     }
     
     console.log(`getWallpaperList: 页面内容长度: ${response.data.length} 字符`);
     
-    const wallpapers = parseWallpaperFromHtml(response.data, BASE_URL);
+    const resultList = parseWallpaperFromHtml(response.data, BASE_URL);
     
-    if (wallpapers.length === 0) {
-      console.warn("getWallpaperList: 未解析到任何壁纸项目，可能需要调整解析规则");
-      
-      // 输出页面内容的一部分用于调试
-      const debugContent = response.data.substring(0, 1000);
-      console.log("getWallpaperList: 页面内容片段:", debugContent);
+    if (resultList && Array.isArray(resultList)) {
+      console.log(`getWallpaperList: 成功解析 ${resultList.length} 个壁纸项目。`);
+      return resultList;
+    } else {
+      console.warn("getWallpaperList: 解析返回的壁纸列表为空或格式不正确。");
+      return [];
     }
     
-    console.log(`getWallpaperList: 成功获取 ${wallpapers.length} 个壁纸`);
-    return wallpapers;
-    
   } catch (error) {
-    console.error("getWallpaperList: 获取壁纸列表失败:", error.message);
-    console.error("getWallpaperList: 错误堆栈:", error.stack);
-    throw error;
+    console.error(`getWallpaperList: 获取壁纸列表时发生错误 (${requestUrl}):`, error.message);
+    throw new Error(`获取壁纸列表失败: ${error.message}.`);
   }
 }
 
 /**
- * 搜索壁纸
+ * 搜索壁纸 - 对应原脚本的searchVod函数
  */
 async function searchWallpaper(params = {}) {
+  const keyword = params.wd || "";
+  const page = parseInt(params.pg) || 1;
+  
+  if (!keyword.trim()) {
+    throw new Error("搜索关键词不能为空");
+  }
+  
+  console.log(`searchWallpaper: 搜索关键词: ${keyword}, 页码: ${page}`);
+  
+  // 尝试多种搜索URL
+  const searchUrls = [
+    `${BASE_URL}/search?q=${encodeURIComponent(keyword)}`,
+    `${BASE_URL}/search.php?keyword=${encodeURIComponent(keyword)}`,
+    `${BASE_URL}/s?wd=${encodeURIComponent(keyword)}`
+  ];
+  
   try {
-    // 参数验证
-    const keyword = params.wd || "";
-    const page = parseInt(params.pg) || 1;
-    
-    if (!keyword.trim()) {
-      throw new Error("搜索关键词不能为空");
-    }
-    
-    if (page < 1) {
-      throw new Error("页码必须大于0");
-    }
-    
-    console.log(`searchWallpaper: 搜索关键词: ${keyword}, 页码: ${page}`);
-    
-    // 尝试多种搜索URL格式
-    const searchUrls = [
-      `${BASE_URL}/search?q=${encodeURIComponent(keyword)}`,
-      `${BASE_URL}/search.php?keyword=${encodeURIComponent(keyword)}`,
-      `${BASE_URL}/s?wd=${encodeURIComponent(keyword)}`,
-      `${BASE_URL}/search/${encodeURIComponent(keyword)}.html`
-    ];
-    
-    let searchResults = [];
-    
     for (const searchUrl of searchUrls) {
       try {
         console.log(`searchWallpaper: 尝试搜索URL: ${searchUrl}`);
@@ -421,10 +372,10 @@ async function searchWallpaper(params = {}) {
         });
         
         if (response && response.data && response.data.length > 1000) {
-          searchResults = parseWallpaperFromHtml(response.data, BASE_URL);
+          const searchResults = parseWallpaperFromHtml(response.data, BASE_URL);
           if (searchResults.length > 0) {
             console.log(`searchWallpaper: 搜索成功，找到 ${searchResults.length} 个结果`);
-            break;
+            return searchResults;
           }
         }
       } catch (error) {
@@ -433,22 +384,18 @@ async function searchWallpaper(params = {}) {
       }
     }
     
-    // 如果直接搜索失败，使用备用搜索方案
-    if (searchResults.length === 0) {
-      console.log("searchWallpaper: 直接搜索失败，使用备用搜索方案");
-      searchResults = await fallbackSearch(keyword, page);
-    }
-    
-    return searchResults;
+    // 备用搜索方案
+    console.log("searchWallpaper: 直接搜索失败，使用备用搜索方案");
+    return await fallbackSearch(keyword, page);
     
   } catch (error) {
-    console.error("searchWallpaper: 搜索失败:", error.message);
-    throw error;
+    console.error(`searchWallpaper: 搜索壁纸时发生错误:`, error.message);
+    throw new Error(`搜索壁纸失败: ${error.message}.`);
   }
 }
 
 /**
- * 备用搜索方案 - 在不同分类中查找相关内容
+ * 备用搜索方案
  */
 async function fallbackSearch(keyword, page = 1) {
   console.log(`fallbackSearch: 使用备用搜索方案查找: ${keyword}`);
@@ -457,11 +404,9 @@ async function fallbackSearch(keyword, page = 1) {
   let allResults = [];
   
   try {
-    // 并行搜索多个分类
     const searchTasks = categories.map(async (sortBy) => {
       try {
-        const results = await getWallpaperList({ sortBy, pg: 1 }); // 只搜索第一页
-        // 过滤包含关键词的结果
+        const results = await getWallpaperList({ sortBy, pg: 1 });
         return results.filter(item => 
           item.title.toLowerCase().includes(keyword.toLowerCase()) ||
           item.description.toLowerCase().includes(keyword.toLowerCase()) ||
@@ -489,7 +434,7 @@ async function fallbackSearch(keyword, page = 1) {
     });
     
     console.log(`fallbackSearch: 备用搜索找到 ${uniqueResults.length} 个相关结果`);
-    return uniqueResults.slice(0, 20); // 限制结果数量
+    return uniqueResults.slice(0, 20);
     
   } catch (error) {
     console.error("fallbackSearch: 备用搜索失败:", error.message);
@@ -498,19 +443,18 @@ async function fallbackSearch(keyword, page = 1) {
 }
 
 /**
- * 加载壁纸详情
+ * 加载详情 - 对应原脚本的loadDetail函数
  */
-async function loadDetail(detailUrl) {
+async function loadDetail(detailPageUrl) {
+  if (!detailPageUrl || typeof detailPageUrl !== "string") {
+    console.error("loadDetail: 无效的 detailPageUrl 参数:", detailPageUrl);
+    throw new Error("无效的参数：detailPageUrl 不能为空。");
+  }
+  
+  console.log(`loadDetail: 请求壁纸详情: ${detailPageUrl}`);
+  
   try {
-    // 参数验证
-    if (!detailUrl || typeof detailUrl !== "string") {
-      throw new Error("无效的详情页URL");
-    }
-    
-    console.log(`loadDetail: 加载壁纸详情: ${detailUrl}`);
-    
-    // 发送请求
-    const response = await Widget.http.get(detailUrl, {
+    const response = await Widget.http.get(detailPageUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -518,57 +462,52 @@ async function loadDetail(detailUrl) {
       }
     });
     
-    // 解析响应
     if (!response || !response.data) {
-      throw new Error("获取详情页面失败");
+      const errorMsg = "未收到任何数据";
+      console.error("loadDetail: 详情请求失败:", errorMsg);
+      throw new Error(`详情请求失败: ${errorMsg}`);
     }
     
-    const detail = parseWallpaperDetail(response.data, detailUrl);
+    const wallpaperDetail = parseWallpaperDetail(response.data, detailPageUrl);
     
-    console.log("loadDetail: 详情解析完成:", detail.title);
-    return detail;
+    console.log("loadDetail returning object:", wallpaperDetail);
+    return wallpaperDetail;
     
   } catch (error) {
-    console.error(`loadDetail: 加载详情失败:`, error.message);
-    throw error;
+    console.error(`loadDetail: 加载壁纸详情时发生错误 (URL: ${detailPageUrl}):`, error.message);
+    throw new Error(`加载壁纸详情失败: ${error.message}.`);
   }
 }
 
 /**
- * 使用Cheerio解析壁纸详情页面
+ * 解析壁纸详情页面 - 类似原脚本的详情解析逻辑
  */
-function parseWallpaperDetail(html, url) {
-  const detail = {
-    id: url,
-    type: "url",
-    title: "壁纸详情",
-    description: "",
-    posterPath: "",
-    backdropPath: "",
-    videoUrl: null,
-    releaseDate: "",
-    mediaType: "movie",
-    rating: "",
-    genreTitle: "",
-    duration: 0,
-    durationText: "",
-    previewUrl: "",
-    link: url
-  };
-  
+function parseWallpaperDetail(html, detailPageUrl) {
   try {
-    // 使用Widget内置的cheerio进行DOM解析
     const $ = Widget.html.load(html);
-    
     console.log("parseWallpaperDetail: 开始解析详情页面");
+    
+    // 基础返回对象
+    let returnObject = {
+      id: detailPageUrl,
+      type: "url",
+      title: "壁纸详情",
+      description: "",
+      posterPath: "",
+      backdropPath: "",
+      releaseDate: "",
+      genreTitle: "",
+      videoUrl: null,
+      link: detailPageUrl,
+      mediaType: "movie"
+    };
     
     // 提取标题
     let title = '';
     const titleSources = [
       () => $('title').text(),
       () => $('h1').first().text(),
-      () => $('.title, .name, .wallpaper-title').first().text(),
-      () => $('.detail-title, .content-title').first().text()
+      () => $('.title, .name, .wallpaper-title').first().text()
     ];
     
     for (const getTitle of titleSources) {
@@ -580,113 +519,104 @@ function parseWallpaperDetail(html, url) {
     }
     
     if (title) {
-      detail.title = title;
+      returnObject.title = title;
     }
     
     // 提取描述
     const description = $('meta[name="description"]').attr('content') || 
-                       $('.description, .desc, .content, .intro').first().text().trim() || '';
+                       $('.description, .desc, .content').first().text().trim();
     if (description) {
-      detail.description = description;
+      returnObject.description = description;
     }
     
     // 查找视频链接（动态壁纸）
-    let videoUrl = '';
     const videoSelectors = [
       'video source[src]',
       'video[src]',
       'source[src*=".mp4"]',
-      'source[src*=".webm"]',
       'a[href*=".mp4"]',
-      'a[href*=".webm"]',
-      '.download-btn[href*=".mp4"]',
-      '.video-url[data-url]',
-      '[data-video-url]'
+      '.download-btn[href*=".mp4"]'
     ];
     
     for (const selector of videoSelectors) {
       const $video = $(selector).first();
       if ($video.length > 0) {
-        videoUrl = $video.attr('src') || $video.attr('href') || $video.attr('data-url') || $video.attr('data-video-url') || '';
+        let videoUrl = $video.attr('src') || $video.attr('href') || '';
         if (videoUrl) {
           if (!videoUrl.startsWith('http')) {
             videoUrl = BASE_URL + videoUrl;
           }
-          detail.videoUrl = videoUrl;
-          detail.mediaType = "tv"; // 动态壁纸
+          returnObject.videoUrl = videoUrl;
+          returnObject.mediaType = "tv"; // 动态壁纸
           console.log("parseWallpaperDetail: 找到视频链接:", videoUrl);
           break;
         }
       }
     }
     
-    // 查找高清图片链接（静态封面或静态壁纸）
-    let imageUrl = '';
+    // 查找图片链接
     const imageSelectors = [
-      'img[src*="hd"]',              // 高清图片
-      'img[src*="large"]',           // 大图
-      'img[src*="original"]',        // 原图
-      '.wallpaper-image img[src]',   // 壁纸图片
-      '.detail-image img[src]',      // 详情图片
-      '.preview-image img[src]',     // 预览图片
-      '.main-image img[src]',        // 主图片
-      'img[data-src]',               // 懒加载图片
-      'img[src]:not([src*="icon"]):not([src*="tag"])', // 排除图标
-      'img[src]'                     // 备用
+      'img[src*="hd"]',
+      'img[src*="large"]',
+      '.wallpaper-image img[src]',
+      '.detail-image img[src]',
+      'img[src]:not([src*="icon"]):not([src*="tag"])',
+      'img[src]'
     ];
     
     for (const selector of imageSelectors) {
       const $img = $(selector).first();
       if ($img.length > 0) {
-        imageUrl = $img.attr('src') || $img.attr('data-src') || '';
+        let imageUrl = $img.attr('src') || '';
         
-        // 过滤掉明显的图标和小图片
         if (imageUrl && 
             !imageUrl.includes('/icon/') && 
             !imageUrl.includes('/tag/') && 
-            !imageUrl.includes('/thumb/') &&
             imageUrl.length > 10) {
           
           if (!imageUrl.startsWith('http')) {
             imageUrl = BASE_URL + imageUrl;
           }
           
-          detail.posterPath = imageUrl;
-          detail.backdropPath = imageUrl;
-          
-          // 如果没有视频，这就是静态壁纸的下载链接
-          if (!detail.videoUrl) {
-            detail.mediaType = "movie"; // 静态壁纸
-          }
-          
+          returnObject.posterPath = imageUrl;
+          returnObject.backdropPath = imageUrl;
           console.log("parseWallpaperDetail: 找到图片链接:", imageUrl);
           break;
         }
       }
     }
     
-    // 提取分辨率信息
-    const bodyText = $('body').text();
-    const resolutionMatch = bodyText.match(/(\d{3,4}[x×]\d{3,4})/i);
-    if (resolutionMatch) {
-      detail.description += ` 分辨率: ${resolutionMatch[1]}`;
-    }
+    // 设置分类
+    if (detailPageUrl.includes('/dn/c1d/')) returnObject.genreTitle = '4K动态壁纸';
+    else if (detailPageUrl.includes('/dn/c2d/')) returnObject.genreTitle = '动漫动态壁纸';
+    else if (detailPageUrl.includes('/dn/c3d/')) returnObject.genreTitle = '风景动态壁纸';
+    else if (detailPageUrl.includes('/dn/c4d/')) returnObject.genreTitle = '美女动态壁纸';
+    else if (detailPageUrl.includes('/dn/c5d/')) returnObject.genreTitle = 'AI动态壁纸';
+    else if (detailPageUrl.includes('/dn/c6d/')) returnObject.genreTitle = '动物动态壁纸';
+    else if (detailPageUrl.includes('/dn/c7d/')) returnObject.genreTitle = '游戏动态壁纸';
+    else if (detailPageUrl.includes('/dn/c8d/')) returnObject.genreTitle = '小清新动态壁纸';
+    else if (detailPageUrl.includes('/dn/c11d/')) returnObject.genreTitle = '其他动态壁纸';
+    else if (detailPageUrl.includes('/jt/')) returnObject.genreTitle = '静态壁纸';
+    else returnObject.genreTitle = returnObject.videoUrl ? '动态壁纸' : '静态壁纸';
     
-    // 提取文件大小
-    const sizeMatch = bodyText.match(/(\d+(?:\.\d+)?\s*[KMGT]?B)/i);
-    if (sizeMatch) {
-      detail.description += ` 大小: ${sizeMatch[1]}`;
-    }
+    return returnObject;
     
-    // 提取发布时间
-    const dateMatch = bodyText.match(/(\d{4}-\d{1,2}-\d{1,2})/);
-    if (dateMatch) {
-      detail.releaseDate = dateMatch[1];
-    }
+  } catch (error) {
+    console.error("parseWallpaperDetail: 解析详情时出错:", error.message);
     
-    // 设置分类标题
-    if (url.includes('/dn/c1d/')) detail.genreTitle = '4K动态壁纸';
-    else if (url.includes('/dn/c2d/')) detail.genreTitle = '动漫动态壁纸';
-    else if (url.includes('/dn/c3d/')) detail.genreTitle = '风景动态壁纸';
-    else if (url.includes('/dn/c4d/')) detail.genreTitle = '美女动态壁纸';
-    else if (url
+    // 返回基础对象，避免完全失败
+    return {
+      id: detailPageUrl,
+      type: "url",
+      title: "壁纸详情",
+      description: "解析失败",
+      posterPath: "",
+      backdropPath: "",
+      releaseDate: "",
+      genreTitle: "壁纸",
+      videoUrl: null,
+      link: detailPageUrl,
+      mediaType: "movie"
+    };
+  }
+}
