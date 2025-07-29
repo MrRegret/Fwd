@@ -1,27 +1,20 @@
-/* ---------- 开发规范元数据 ---------- */
+/* ---------- 规范元数据 ---------- */
 var WidgetMetadata = {
-  id: "xtream_final",
-  title: "Xtream 全能解析",
-  description: "直接粘贴 Xtream-Codes 完整链接即可：支持分类、搜索、剧集推荐",
+  id: "xtream_compat",
+  title: "Xtream 兼容版",
+  description: "粘贴完整 API 链接即可：无 URLSearchParams，支持分类/搜索/剧集推荐",
   author: "2kuai",
-  site: "https://github.com/InchStudio/ForwardWidgets",
-  version: "5.0.0",
+  version: "5.1.0",
   requiredVersion: "0.0.1",
-  detailCacheDuration: 60,
-  modules: [
-    {
-      title: "解析 & 浏览",
-      description: "粘贴链接 → 自动解析 → 分类浏览 → 搜索 → 剧集推荐",
-      requiresWebView: false,
-      functionName: "main",
-      cacheDuration: 300,
-      params: [
-        { name: "xtream_url", title: "完整链接", type: "input",
-          placeholder: "https://lot77162.cdngold.me/player_api.php?username=Ahmedalrufaidy&password=h7cy07dp31" },
-        { name: "keyword",    title: "关键词",   type: "input", placeholder: "留空显示全部" }
-      ]
-    }
-  ]
+  modules: [{
+    title: "解析 & 浏览",
+    functionName: "main",
+    params: [
+      { name: "xtream_url", title: "完整 API 链接", type: "input",
+        placeholder: "https://lot77162.cdngold.me/player_api.php?username=Ahmedalrufaidy&password=h7cy07dp31" },
+      { name: "keyword", title: "关键词过滤", type: "input", placeholder: "留空显示全部" }
+    ]
+  }]
 };
 
 /* ---------- 主函数 ---------- */
@@ -29,7 +22,7 @@ async function main(params = {}) {
   const { xtream_url, keyword = "" } = params;
   if (!xtream_url) throw new Error("请粘贴完整 API 链接");
 
-  /* 1. 解析 URL */
+  /* 1. 纯字符串解析 URL & 参数 */
   const { protocol, host, port, username, password } = parseUrl(xtream_url);
   const baseUrl = `${protocol}://${host}${port ? ':' + port : ''}`;
   const kw = keyword.trim().toLowerCase();
@@ -39,41 +32,39 @@ async function main(params = {}) {
   const vodCats    = await api(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_vod_categories`);
   const seriesCats = await api(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_series_categories`);
 
-  /* 3. 拉取内容并过滤 */
-  const liveChans  = filter(await api(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_live_streams`),   kw);
-  const vodMovies  = filter(await api(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_vod_streams`),    kw);
-  const seriesList = filter(await api(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_series`),        kw);
+  /* 3. 拉取内容并筛选 */
+  const liveChans  = filter(await api(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_live_streams`), kw);
+  const vodMovies  = filter(await api(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_vod_streams`), kw);
+  const seriesList = filter(await api(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_series`), kw);
 
   /* 4. 组装卡片 */
   const cards = [];
 
   /* 4-1 分类入口 */
-  liveCats.forEach(c => cards.push(entryCard("📺 Live", c.category_name, c.category_id, `${baseUrl}/live/${username}/${password}/`, 'live')));
-  vodCats.forEach(c  => cards.push(entryCard("🎬 VOD",  c.category_name, c.category_id, `${baseUrl}/movie/${username}/${password}/`, 'vod')));
-  seriesCats.forEach(c=> cards.push(entryCard("📺 Series", c.category_name, c.category_id, `${baseUrl}/series/${username}/${password}/`, 'series')));
+  liveCats.forEach(c => cards.push(entry("📺 Live", c.category_name, c.category_id, baseUrl, "live")));
+  vodCats.forEach(c  => cards.push(entry("🎬 VOD",  c.category_name, c.category_id, baseUrl, "vod")));
+  seriesCats.forEach(c=> cards.push(entry("📺 Series", c.category_name, c.category_id, baseUrl, "series")));
 
-  /* 4-2 直播频道（前 30 条，带关键词过滤） */
-  liveChans.slice(0, 30).forEach(ch => cards.push(chanCard(ch, `${baseUrl}/live/${username}/${password}/${ch.stream_id}.ts`)));
+  /* 4-2 直播频道（前 30） */
+  liveChans.slice(0, 30).forEach(ch => cards.push(card(ch.name, ch, `${baseUrl}/live/${username}/${password}/${ch.stream_id}.ts`, "live")));
 
-  /* 4-3 电影（前 20 条） */
-  vodMovies.slice(0, 20).forEach(m => cards.push(movieCard(m, `${baseUrl}/movie/${username}/${password}/${m.stream_id}.${(m.container_extension || 'mp4')}`)));
+  /* 4-3 电影（前 20） */
+  vodMovies.slice(0, 20).forEach(m => cards.push(card(m.name, m, `${baseUrl}/movie/${username}/${password}/${m.stream_id}.${(m.container_extension || 'mp4')}`, "movie")));
 
-  /* 4-4 剧集（前 10 部，第一集 + 相关 4 集） */
+  /* 4-4 剧集（第一集 + 相关 4 集） */
   for (const s of seriesList.slice(0, 10)) {
-    const info = await api(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_series_info&series_id=${s.series_id}`);
-    const episodes = info.episodes || {};
-    const epList = Object.values(episodes).flat().slice(0, 5);
-    if (epList.length === 0) continue;
+    const infoRes = await api(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_series_info&series_id=${s.series_id}`);
+    const eps = Object.values(infoRes.episodes || {}).flat().slice(0, 5);
+    if (eps.length === 0) continue;
 
-    const mainEp = epList[0];
-    const related = epList.slice(1, 5).map(e => epCard(e, `${baseUrl}/series/${username}/${password}/${e.id}.${e.container_extension || 'mp4'}`));
-
+    const mainEp = eps[0];
+    const related = eps.slice(1, 5).map(e => card(`S${e.season}E${e.episode_num}`, e, `${baseUrl}/series/${username}/${password}/${e.id}.${e.container_extension || 'mp4'}`, "tv"));
     cards.push({
       id: `series_${s.series_id}_main`,
       type: "url",
       title: `${s.name} - S${mainEp.season}E${mainEp.episode_num}`,
-      description: info.info?.plot || s.category_name,
-      backdropPath: s.cover || info.info?.cover || "",
+      description: infoRes.info?.plot || s.category_name,
+      backdropPath: s.cover || infoRes.info?.cover || "",
       videoUrl: `${baseUrl}/series/${username}/${password}/${mainEp.id}.${mainEp.container_extension || 'mp4'}`,
       childItems: related
     });
@@ -82,67 +73,32 @@ async function main(params = {}) {
   return cards;
 }
 
-/* ---------- 工具 ---------- */
+/* ---------- 工具函数 ---------- */
 function parseUrl(url) {
-  const [protocol, rest] = url.split('://');
-  if (!['http', 'https'].includes(protocol)) throw new Error("URL 必须以 http/https 开头");
+  const [proto, rest] = url.split('://');
   const [hostPort, query] = rest.split('?');
   const [host, port] = hostPort.split(':');
-  const params = Object.fromEntries(new URLSearchParams(query));
-  return { protocol, host, port, username: params.username, password: params.password };
+  const pairs = query.split('&').reduce((o, p) => {
+    const [k, v] = p.split('=');
+    o[decodeURIComponent(k)] = decodeURIComponent(v || '');
+    return o;
+  }, {});
+  return { protocol: proto, host, port, username: pairs.username, password: pairs.password };
 }
 
 async function api(u) {
-  const res = await Widget.http.get(u, { headers: { "User-Agent": "AptvPlayer/1.4.11" } });
-  return Array.isArray(res.data) ? res.data : [];
+  const r = await Widget.http.get(u, { headers: { "User-Agent": "AptvPlayer/1.4.11" } });
+  return Array.isArray(r.data) ? r.data : [];
 }
 
 function filter(arr, kw) {
   return kw ? arr.filter(i => (i.name || '').toLowerCase().includes(kw)) : arr;
 }
 
-function entryCard(prefix, name, id, base, type) {
-  return {
-    id: `${type}_${id}`,
-    type: "url",
-    title: `${prefix} · ${name}`,
-    description: `点击查看 ${type} 列表`,
-    backdropPath: `https://fakeimg.pl/200x120/1C1C1E/?text=${encodeURIComponent(name)}`
-  };
+function entry(icon, name, id, base, type) {
+  return { id: `${type}_${id}`, type: "url", title: `${icon} ${name}`, description: `点击查看 ${type} 列表`, backdropPath: `https://fakeimg.pl/200x120/1C1C1E/?text=${encodeURIComponent(name)}` };
 }
 
-function chanCard(ch, url) {
-  return {
-    id: url,
-    type: "url",
-    title: ch.name,
-    description: ch.category_name || "",
-    backdropPath: ch.stream_icon || "",
-    videoUrl: url
-  };
-}
-
-function movieCard(m, url) {
-  return {
-    id: url,
-    type: "url",
-    title: m.name,
-    description: m.category_name || "",
-    backdropPath: m.stream_icon || "",
-    videoUrl: url,
-    mediaType: "movie"
-  };
-}
-
-function epCard(e, url) {
-  return {
-    id: url,
-    type: "url",
-    title: `S${e.season}E${e.episode_num} - ${e.title || ''}`,
-    description: e.info?.plot || "",
-    backdropPath: e.info?.movie_image || "",
-    videoUrl: url,
-    mediaType: "tv",
-    episode: Number(e.episode_num)
-  };
+function card(title, obj, url, media) {
+  return { id: url, type: "url", title, description: obj.category_name || "", backdropPath: obj.stream_icon || "", videoUrl: url, mediaType: media };
 }
