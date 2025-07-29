@@ -1,26 +1,26 @@
 /* ---------- Widget Metadata ---------- */
 var WidgetMetadata = {
-  id: "xtream_api_enhanced",
-  title: "Xtream API Enhanced",
-  description: "Enhanced Xtream Codes API client with auto URL parsing, categories, search and series support",
+  id: "xtream_rest_api",
+  title: "Xtream REST API Client",
+  description: "Official Xtream Codes REST API client for content viewing with enhanced features",
   author: "Enhanced by Assistant",
   site: "https://github.com/InchStudio/ForwardWidgets",
-  version: "3.1.1",
+  version: "4.0.0",
   requiredVersion: "0.0.1",
   detailCacheDuration: 60,
   modules: [
     {
-      title: "Auto Parse URL",
-      description: "Automatically parse Xtream URL to extract credentials",
+      title: "Quick Connect",
+      description: "Auto-parse URL and connect to server",
       requiresWebView: false,
-      functionName: "parseAndConnect",
+      functionName: "quickConnect",
       cacheDuration: 300,
       params: [
         { 
           name: "xtream_url", 
           title: "Xtream URL", 
           type: "input", 
-          placeholder: "http://host:port/player_api.php?username=xxx&password=xxx&action=get_live_streams" 
+          placeholder: "http://host/player_api.php?username=xxx&password=xxx" 
         },
         { 
           name: "bg_color", 
@@ -31,13 +31,25 @@ var WidgetMetadata = {
       ]
     },
     {
+      title: "Server Status",
+      description: "View server information and status",
+      requiresWebView: false,
+      functionName: "getServerStatus",
+      cacheDuration: 60,
+      params: [
+        { name: "host", title: "Server Host", type: "input", placeholder: "lot77162.cdngold.me" },
+        { name: "username", title: "Username", type: "input" },
+        { name: "password", title: "Password", type: "input" }
+      ]
+    },
+    {
       title: "Live Categories",
-      description: "Browse live TV by categories",
+      description: "Browse live TV categories",
       requiresWebView: false,
       functionName: "getLiveCategories",
       cacheDuration: 600,
       params: [
-        { name: "host", title: "Server Host", type: "input", placeholder: "lot77162.cdngold.me" },
+        { name: "host", title: "Server Host", type: "input" },
         { name: "username", title: "Username", type: "input" },
         { name: "password", title: "Password", type: "input" },
         { name: "bg_color", title: "Logo BG Color", type: "input", placeholder: "1C1C1E" }
@@ -45,12 +57,12 @@ var WidgetMetadata = {
     },
     {
       title: "Live Streams",
-      description: "Get live streams by category",
+      description: "Browse live TV streams",
       requiresWebView: false,
       functionName: "getLiveStreams",
       cacheDuration: 300,
       params: [
-        { name: "host", title: "Server Host", type: "input", placeholder: "lot77162.cdngold.me" },
+        { name: "host", title: "Server Host", type: "input" },
         { name: "username", title: "Username", type: "input" },
         { name: "password", title: "Password", type: "input" },
         { name: "category_id", title: "Category ID", type: "input", placeholder: "Leave empty for all" },
@@ -59,13 +71,13 @@ var WidgetMetadata = {
       ]
     },
     {
-      title: "VOD Categories",
-      description: "Browse movies/VOD by categories",
+      title: "VOD Categories", 
+      description: "Browse movie/VOD categories",
       requiresWebView: false,
       functionName: "getVodCategories",
       cacheDuration: 600,
       params: [
-        { name: "host", title: "Server Host", type: "input", placeholder: "lot77162.cdngold.me" },
+        { name: "host", title: "Server Host", type: "input" },
         { name: "username", title: "Username", type: "input" },
         { name: "password", title: "Password", type: "input" },
         { name: "bg_color", title: "Logo BG Color", type: "input", placeholder: "1C1C1E" }
@@ -73,12 +85,12 @@ var WidgetMetadata = {
     },
     {
       title: "VOD Streams",
-      description: "Get VOD/Movies by category",
+      description: "Browse movies and VOD content",
       requiresWebView: false,
-      functionName: "getVodStreams",
+      functionName: "getVodStreams", 
       cacheDuration: 300,
       params: [
-        { name: "host", title: "Server Host", type: "input", placeholder: "lot77162.cdngold.me" },
+        { name: "host", title: "Server Host", type: "input" },
         { name: "username", title: "Username", type: "input" },
         { name: "password", title: "Password", type: "input" },
         { name: "category_id", title: "Category ID", type: "input", placeholder: "Leave empty for all" },
@@ -88,25 +100,25 @@ var WidgetMetadata = {
     },
     {
       title: "Series Categories",
-      description: "Browse TV series by categories",
+      description: "Browse TV series categories", 
       requiresWebView: false,
       functionName: "getSeriesCategories",
       cacheDuration: 600,
       params: [
-        { name: "host", title: "Server Host", type: "input", placeholder: "lot77162.cdngold.me" },
+        { name: "host", title: "Server Host", type: "input" },
         { name: "username", title: "Username", type: "input" },
         { name: "password", title: "Password", type: "input" },
         { name: "bg_color", title: "Logo BG Color", type: "input", placeholder: "1C1C1E" }
       ]
     },
     {
-      title: "Series Streams",
-      description: "Get TV series by category with episode support",
+      title: "Series & Episodes",
+      description: "Browse TV series with episodes",
       requiresWebView: false,
       functionName: "getSeriesStreams",
       cacheDuration: 300,
       params: [
-        { name: "host", title: "Server Host", type: "input", placeholder: "lot77162.cdngold.me" },
+        { name: "host", title: "Server Host", type: "input" },
         { name: "username", title: "Username", type: "input" },
         { name: "password", title: "Password", type: "input" },
         { name: "category_id", title: "Category ID", type: "input", placeholder: "Leave empty for all" },
@@ -116,13 +128,13 @@ var WidgetMetadata = {
     }
   ],
   search: {
-    title: "Global Search",
-    functionName: "globalSearch",
+    title: "Universal Search",
+    functionName: "universalSearch", 
     params: [
-      { name: "host", title: "Server Host", type: "input", placeholder: "lot77162.cdngold.me" },
+      { name: "host", title: "Server Host", type: "input" },
       { name: "username", title: "Username", type: "input" },
       { name: "password", title: "Password", type: "input" },
-      { name: "keyword", title: "Search Query", type: "input", placeholder: "Search across all content..." },
+      { name: "keyword", title: "Search Query", type: "input", placeholder: "Search all content..." },
       { name: "bg_color", title: "Logo BG Color", type: "input", placeholder: "1C1C1E" }
     ]
   }
@@ -131,431 +143,594 @@ var WidgetMetadata = {
 /* ---------- Utility Functions ---------- */
 function parseXtreamUrl(url) {
   try {
-    // Manual URL parsing for better compatibility
     if (!url || typeof url !== 'string') {
       throw new Error("Invalid URL");
     }
     
-    // Extract protocol and remove it
-    const protocolMatch = url.match(/^https?:\/\//);
-    if (!protocolMatch) {
+    if (url.indexOf('http://') !== 0 && url.indexOf('https://') !== 0) {
       throw new Error("URL must start with http:// or https://");
     }
     
-    const withoutProtocol = url.replace(/^https?:\/\//, '');
-    
-    // Split by '/' to separate host from path
-    const parts = withoutProtocol.split('/');
-    const host = parts[0];
+    var withoutProtocol = url.replace(/^https?:\/\//, '');
+    var slashIndex = withoutProtocol.indexOf('/');
+    var host = slashIndex > -1 ? withoutProtocol.substring(0, slashIndex) : withoutProtocol;
     
     if (!host) {
       throw new Error("Invalid host");
     }
     
-    // Extract query parameters manually
-    const queryStart = url.indexOf('?');
+    var queryStart = url.indexOf('?');
     if (queryStart === -1) {
       throw new Error("No query parameters found");
     }
     
-    const queryString = url.substring(queryStart + 1);
-    const params = {};
+    var queryString = url.substring(queryStart + 1);
+    var params = {};
     
-    queryString.split('&').forEach(param => {
-      const [key, value] = param.split('=');
-      if (key && value) {
+    var pairs = queryString.split('&');
+    for (var i = 0; i < pairs.length; i++) {
+      var pair = pairs[i];
+      var equalIndex = pair.indexOf('=');
+      if (equalIndex > -1) {
+        var key = pair.substring(0, equalIndex);
+        var value = pair.substring(equalIndex + 1);
         params[decodeURIComponent(key)] = decodeURIComponent(value);
       }
-    });
+    }
     
-    const username = params.username;
-    const password = params.password;
+    var username = params.username;
+    var password = params.password;
     
     if (!username || !password) {
       throw new Error("Username and password are required in URL");
     }
     
-    return { host, username, password };
+    return { host: host, username: username, password: password };
   } catch (error) {
     throw new Error("Failed to parse URL: " + error.message);
   }
 }
 
-function buildApiUrl(host, username, password, action, extraParams = {}) {
-  const baseUrl = `http://${host}/player_api.php`;
+function buildPlayerApiUrl(host, username, password, action, extraParams) {
+  var baseUrl = "http://" + host + "/player_api.php";
+  var params = [];
   
-  // Manual parameter building for better compatibility
-  const params = [`username=${encodeURIComponent(username)}`, `password=${encodeURIComponent(password)}`];
+  params.push("username=" + encodeURIComponent(username));
+  params.push("password=" + encodeURIComponent(password));
   
   if (action) {
-    params.push(`action=${encodeURIComponent(action)}`);
+    params.push("action=" + encodeURIComponent(action));
   }
   
-  // Add extra parameters
-  Object.keys(extraParams).forEach(key => {
-    if (extraParams[key] !== undefined && extraParams[key] !== null && extraParams[key] !== '') {
-      params.push(`${encodeURIComponent(key)}=${encodeURIComponent(extraParams[key])}`);
+  if (extraParams) {
+    for (var key in extraParams) {
+      if (extraParams.hasOwnProperty(key)) {
+        var value = extraParams[key];
+        if (value !== undefined && value !== null && value !== '') {
+          params.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
+        }
+      }
     }
-  });
+  }
   
-  return `${baseUrl}?${params.join('&')}`;
+  return baseUrl + "?" + params.join('&');
 }
 
-function createFallbackImage(title, bgColor = "1C1C1E") {
-  return `https://fakeimg.pl/200x120/${bgColor}/?text=${encodeURIComponent(title)}`;
+function buildRestApiUrl(host, action, sub, extraParams) {
+  var baseUrl = "http://" + host + "/api.php";
+  var params = [];
+  
+  if (action) {
+    params.push("action=" + encodeURIComponent(action));
+  }
+  
+  if (sub) {
+    params.push("sub=" + encodeURIComponent(sub));
+  }
+  
+  if (extraParams) {
+    for (var key in extraParams) {
+      if (extraParams.hasOwnProperty(key)) {
+        var value = extraParams[key];
+        if (value !== undefined && value !== null && value !== '') {
+          params.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
+        }
+      }
+    }
+  }
+  
+  return baseUrl + "?" + params.join('&');
+}
+
+function createFallbackImage(title, bgColor) {
+  var color = bgColor || "1C1C1E";
+  return "https://fakeimg.pl/200x120/" + color + "/?text=" + encodeURIComponent(title);
 }
 
 function getDefaultHeaders() {
-  return { "User-Agent": "ForwardWidget/3.0.0" };
+  return { "User-Agent": "XtreamRestAPI/4.0.0" };
 }
 
-/* ---------- Auto Parse URL Function ---------- */
-async function parseAndConnect(params = {}) {
-  const { xtream_url, bg_color } = params;
+/* ---------- Quick Connect Function ---------- */
+async function quickConnect(params) {
+  params = params || {};
+  var xtream_url = params.xtream_url;
+  var bg_color = params.bg_color;
   
   if (!xtream_url) {
     throw new Error("Xtream URL is required");
   }
 
   try {
-    const { host, username, password } = parseXtreamUrl(xtream_url);
+    var parsed = parseXtreamUrl(xtream_url);
+    var host = parsed.host;
+    var username = parsed.username;
+    var password = parsed.password;
     
-    // Test connection by getting server info
-    const authUrl = buildApiUrl(host, username, password, "");
-    const response = await Widget.http.get(authUrl, { headers: getDefaultHeaders() });
+    // 测试连接 - 使用player API验证凭据
+    var authUrl = buildPlayerApiUrl(host, username, password, "");
+    var response = await Widget.http.get(authUrl, { headers: getDefaultHeaders() });
     
-    if (!response?.data) {
+    if (!response || !response.data) {
       throw new Error("Failed to connect to server");
     }
 
-    // Return connection info as cards
+    // 获取服务器信息
+    var serverInfo = response.data;
+    
     return [
       {
-        id: "connection_info",
+        id: "connection_success",
         type: "url",
-        title: "✅ Connection Successful",
-        description: `Server: ${host}\nUser: ${username}`,
+        title: "✅ Connected Successfully",
+        description: "Server: " + host + "\nUser: " + username + "\nStatus: " + (serverInfo.user_info ? "Active" : "Connected"),
         backdropPath: createFallbackImage("Connected", bg_color)
       },
       {
-        id: "live_categories",
+        id: "server_status",
         type: "url", 
-        title: "📺 Live TV Categories",
-        description: "Browse live TV channels by category",
+        title: "🖥️ Server Status",
+        description: "View detailed server information and statistics",
+        backdropPath: createFallbackImage("Server Info", bg_color)
+      },
+      {
+        id: "live_content",
+        type: "url",
+        title: "📺 Live TV",
+        description: "Browse live television channels and categories",
         backdropPath: createFallbackImage("Live TV", bg_color)
       },
       {
-        id: "vod_categories",
+        id: "vod_content",
         type: "url",
-        title: "🎬 Movies & VOD Categories", 
-        description: "Browse movies and video on demand by category",
+        title: "🎬 Movies & VOD",
+        description: "Browse movies and video on demand content",
         backdropPath: createFallbackImage("Movies", bg_color)
       },
       {
-        id: "series_categories",
+        id: "series_content",
         type: "url",
-        title: "📺 TV Series Categories",
-        description: "Browse TV series and episodes by category", 
-        backdropPath: createFallbackImage("Series", bg_color)
+        title: "📺 TV Series",
+        description: "Browse TV series and episodes",
+        backdropPath: createFallbackImage("TV Series", bg_color)
       }
     ];
   } catch (error) {
-    throw new Error(`Connection failed: ${error.message}`);
+    throw new Error("Connection failed: " + error.message);
+  }
+}
+
+/* ---------- Server Status Function ---------- */
+async function getServerStatus(params) {
+  params = params || {};
+  var host = params.host;
+  var username = params.username;
+  var password = params.password;
+  
+  if (!host || !username || !password) {
+    throw new Error("Host, username, and password are required");
+  }
+
+  try {
+    // 获取用户信息
+    var userUrl = buildPlayerApiUrl(host, username, password, "");
+    var userResponse = await Widget.http.get(userUrl, { headers: getDefaultHeaders() });
+    
+    // 尝试获取服务器列表 (如果有权限)
+    var serverListUrl = buildRestApiUrl(host, "server", "list");
+    var serverResponse;
+    try {
+      serverResponse = await Widget.http.get(serverListUrl, { headers: getDefaultHeaders() });
+    } catch (e) {
+      console.log("Server list not accessible:", e.message);
+    }
+    
+    var results = [];
+    
+    if (userResponse && userResponse.data) {
+      var userInfo = userResponse.data.user_info || {};
+      var serverInfo = userResponse.data.server_info || {};
+      
+      results.push({
+        id: "user_info",
+        type: "url",
+        title: "👤 User Information",
+        description: "Username: " + userInfo.username + 
+                    "\nStatus: " + (userInfo.status || "Active") +
+                    "\nExpiry: " + (userInfo.exp_date || "No limit") +
+                    "\nConnections: " + (userInfo.active_cons || 0) + "/" + (userInfo.max_connections || "∞"),
+        backdropPath: createFallbackImage("User Info", "2E8B57")
+      });
+      
+      if (serverInfo.url) {
+        results.push({
+          id: "server_info", 
+          type: "url",
+          title: "🌐 Server Information",
+          description: "Server: " + (serverInfo.url || host) +
+                      "\nPort: " + (serverInfo.port || "80") +
+                      "\nHTTPS: " + (serverInfo.https_port ? "Available" : "Not available") +
+                      "\nTimezone: " + (serverInfo.timezone || "UTC"),
+          backdropPath: createFallbackImage("Server Info", "4169E1")
+        });
+      }
+    }
+    
+    if (serverResponse && serverResponse.data && Array.isArray(serverResponse.data)) {
+      results.push({
+        id: "server_list",
+        type: "url", 
+        title: "🖥️ Server Status",
+        description: "Total servers: " + serverResponse.data.length + 
+                    "\nOnline: " + serverResponse.data.filter(function(s) { return s.status === 'online'; }).length,
+        backdropPath: createFallbackImage("Servers", "FF6347")
+      });
+    }
+    
+    if (results.length === 0) {
+      results.push({
+        id: "basic_status",
+        type: "url",
+        title: "✅ Connection Active", 
+        description: "Successfully connected to " + host,
+        backdropPath: createFallbackImage("Active", "32CD32")
+      });
+    }
+    
+    return results;
+  } catch (error) {
+    throw new Error("Failed to get server status: " + error.message);
   }
 }
 
 /* ---------- Category Functions ---------- */
-async function getLiveCategories(params = {}) {
-  const { host, username, password, bg_color } = params;
+async function getLiveCategories(params) {
+  params = params || {};
+  var host = params.host;
+  var username = params.username;
+  var password = params.password;
+  var bg_color = params.bg_color;
   
   if (!host || !username || !password) {
     throw new Error("Host, username, and password are required");
   }
 
-  const apiUrl = buildApiUrl(host, username, password, "get_live_categories");
-  const response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
+  var apiUrl = buildPlayerApiUrl(host, username, password, "get_live_categories");
+  var response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
 
-  if (!response?.data || !Array.isArray(response.data)) {
+  if (!response || !response.data || !Array.isArray(response.data)) {
     throw new Error("Invalid categories response");
   }
 
-  return response.data.map(category => ({
-    id: `live_cat_${category.category_id}`,
-    type: "url",
-    title: category.category_name,
-    description: `Category ID: ${category.category_id}`,
-    backdropPath: createFallbackImage(category.category_name, bg_color),
-    link: `forward://getLiveStreams?host=${host}&username=${username}&password=${password}&category_id=${category.category_id}&bg_color=${bg_color || ''}`
-  }));
+  return response.data.map(function(category) {
+    return {
+      id: "live_cat_" + category.category_id,
+      type: "url",
+      title: category.category_name,
+      description: "Category ID: " + category.category_id,
+      backdropPath: createFallbackImage(category.category_name, bg_color)
+    };
+  });
 }
 
-async function getVodCategories(params = {}) {
-  const { host, username, password, bg_color } = params;
+async function getVodCategories(params) {
+  params = params || {};
+  var host = params.host;
+  var username = params.username;
+  var password = params.password;
+  var bg_color = params.bg_color;
   
   if (!host || !username || !password) {
     throw new Error("Host, username, and password are required");
   }
 
-  const apiUrl = buildApiUrl(host, username, password, "get_vod_categories");
-  const response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
+  var apiUrl = buildPlayerApiUrl(host, username, password, "get_vod_categories");
+  var response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
 
-  if (!response?.data || !Array.isArray(response.data)) {
+  if (!response || !response.data || !Array.isArray(response.data)) {
     throw new Error("Invalid categories response");
   }
 
-  return response.data.map(category => ({
-    id: `vod_cat_${category.category_id}`,
-    type: "url",
-    title: category.category_name,
-    description: `Category ID: ${category.category_id}`,
-    backdropPath: createFallbackImage(category.category_name, bg_color)
-  }));
+  return response.data.map(function(category) {
+    return {
+      id: "vod_cat_" + category.category_id,
+      type: "url", 
+      title: category.category_name,
+      description: "Category ID: " + category.category_id,
+      backdropPath: createFallbackImage(category.category_name, bg_color)
+    };
+  });
 }
 
-async function getSeriesCategories(params = {}) {
-  const { host, username, password, bg_color } = params;
+async function getSeriesCategories(params) {
+  params = params || {};
+  var host = params.host;
+  var username = params.username;
+  var password = params.password;
+  var bg_color = params.bg_color;
   
   if (!host || !username || !password) {
     throw new Error("Host, username, and password are required");
   }
 
-  const apiUrl = buildApiUrl(host, username, password, "get_series_categories");
-  const response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
+  var apiUrl = buildPlayerApiUrl(host, username, password, "get_series_categories");
+  var response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
 
-  if (!response?.data || !Array.isArray(response.data)) {
+  if (!response || !response.data || !Array.isArray(response.data)) {
     throw new Error("Invalid categories response");
   }
 
-  return response.data.map(category => ({
-    id: `series_cat_${category.category_id}`,
-    type: "url",
-    title: category.category_name,
-    description: `Category ID: ${category.category_id}`,
-    backdropPath: createFallbackImage(category.category_name, bg_color)
-  }));
+  return response.data.map(function(category) {
+    return {
+      id: "series_cat_" + category.category_id,
+      type: "url",
+      title: category.category_name, 
+      description: "Category ID: " + category.category_id,
+      backdropPath: createFallbackImage(category.category_name, bg_color)
+    };
+  });
 }
 
 /* ---------- Stream Functions ---------- */
-async function getLiveStreams(params = {}) {
-  const { host, username, password, category_id, keyword = "", bg_color } = params;
+async function getLiveStreams(params) {
+  params = params || {};
+  var host = params.host;
+  var username = params.username;
+  var password = params.password;
+  var category_id = params.category_id;
+  var keyword = params.keyword || "";
+  var bg_color = params.bg_color;
   
   if (!host || !username || !password) {
     throw new Error("Host, username, and password are required");
   }
 
-  const extraParams = category_id ? { category_id } : {};
-  const apiUrl = buildApiUrl(host, username, password, "get_live_streams", extraParams);
-  const response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
+  var extraParams = {};
+  if (category_id) {
+    extraParams.category_id = category_id;
+  }
+  
+  var apiUrl = buildPlayerApiUrl(host, username, password, "get_live_streams", extraParams);
+  var response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
 
-  if (!response?.data || !Array.isArray(response.data)) {
+  if (!response || !response.data || !Array.isArray(response.data)) {
     throw new Error("Invalid streams response");
   }
 
-  // Filter by keyword if provided
-  const kw = keyword.trim().toLowerCase();
-  const streams = response.data.filter(stream =>
-    !kw || (stream.name || "").toLowerCase().includes(kw)
-  );
+  // 关键词过滤
+  var kw = keyword.trim().toLowerCase();
+  var streams = response.data.filter(function(stream) {
+    return !kw || (stream.name || "").toLowerCase().indexOf(kw) !== -1;
+  });
 
-  return streams.map(stream => ({
-    id: `live_${stream.stream_id}`,
-    type: "url",
-    title: stream.name,
-    description: stream.category_name || "Live Channel",
-    backdropPath: stream.stream_icon || createFallbackImage(stream.name, bg_color),
-    posterPath: stream.stream_icon,
-    videoUrl: `http://${host}/live/${username}/${password}/${stream.stream_id}.ts`,
-    customHeaders: getDefaultHeaders(),
-    mediaType: "tv"
-  }));
+  return streams.map(function(stream) {
+    return {
+      id: "live_" + stream.stream_id,
+      type: "url",
+      title: stream.name,
+      description: stream.category_name || "Live Channel",
+      backdropPath: stream.stream_icon || createFallbackImage(stream.name, bg_color),
+      posterPath: stream.stream_icon,
+      videoUrl: "http://" + host + "/live/" + username + "/" + password + "/" + stream.stream_id + ".ts",
+      customHeaders: getDefaultHeaders(),
+      mediaType: "tv"
+    };
+  });
 }
 
-async function getVodStreams(params = {}) {
-  const { host, username, password, category_id, keyword = "", bg_color } = params;
+async function getVodStreams(params) {
+  params = params || {};
+  var host = params.host;
+  var username = params.username; 
+  var password = params.password;
+  var category_id = params.category_id;
+  var keyword = params.keyword || "";
+  var bg_color = params.bg_color;
   
   if (!host || !username || !password) {
     throw new Error("Host, username, and password are required");
   }
 
-  const extraParams = category_id ? { category_id } : {};
-  const apiUrl = buildApiUrl(host, username, password, "get_vod_streams", extraParams);
-  const response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
+  var extraParams = {};
+  if (category_id) {
+    extraParams.category_id = category_id;
+  }
+  
+  var apiUrl = buildPlayerApiUrl(host, username, password, "get_vod_streams", extraParams);
+  var response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
 
-  if (!response?.data || !Array.isArray(response.data)) {
+  if (!response || !response.data || !Array.isArray(response.data)) {
     throw new Error("Invalid streams response");
   }
 
-  // Filter by keyword if provided
-  const kw = keyword.trim().toLowerCase();
-  const streams = response.data.filter(stream =>
-    !kw || (stream.name || "").toLowerCase().includes(kw)
-  );
+  // 关键词过滤
+  var kw = keyword.trim().toLowerCase();
+  var streams = response.data.filter(function(stream) {
+    return !kw || (stream.name || "").toLowerCase().indexOf(kw) !== -1;
+  });
 
-  return streams.map(stream => ({
-    id: `vod_${stream.stream_id}`,
-    type: "url",
-    title: stream.name,
-    description: stream.category_name || "Video on Demand",
-    backdropPath: stream.stream_icon || createFallbackImage(stream.name, bg_color),
-    posterPath: stream.stream_icon,
-    videoUrl: `http://${host}/movie/${username}/${password}/${stream.stream_id}.${stream.container_extension || 'mp4'}`,
-    customHeaders: getDefaultHeaders(),
-    mediaType: "movie",
-    rating: stream.rating,
-    releaseDate: stream.added
-  }));
+  return streams.map(function(stream) {
+    return {
+      id: "vod_" + stream.stream_id,
+      type: "url",
+      title: stream.name,
+      description: stream.category_name || "Video on Demand", 
+      backdropPath: stream.stream_icon || createFallbackImage(stream.name, bg_color),
+      posterPath: stream.stream_icon,
+      videoUrl: "http://" + host + "/movie/" + username + "/" + password + "/" + stream.stream_id + "." + (stream.container_extension || 'mp4'),
+      customHeaders: getDefaultHeaders(),
+      mediaType: "movie",
+      rating: stream.rating,
+      releaseDate: stream.added
+    };
+  });
 }
 
-async function getSeriesStreams(params = {}) {
-  const { host, username, password, category_id, keyword = "", bg_color } = params;
+async function getSeriesStreams(params) {
+  params = params || {};
+  var host = params.host;
+  var username = params.username;
+  var password = params.password;
+  var category_id = params.category_id;
+  var keyword = params.keyword || "";
+  var bg_color = params.bg_color;
   
   if (!host || !username || !password) {
     throw new Error("Host, username, and password are required");
   }
 
-  const extraParams = category_id ? { category_id } : {};
-  const apiUrl = buildApiUrl(host, username, password, "get_series", extraParams);
-  const response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
+  var extraParams = {};
+  if (category_id) {
+    extraParams.category_id = category_id;
+  }
+  
+  var apiUrl = buildPlayerApiUrl(host, username, password, "get_series", extraParams);
+  var response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
 
-  if (!response?.data || !Array.isArray(response.data)) {
+  if (!response || !response.data || !Array.isArray(response.data)) {
     throw new Error("Invalid series response");
   }
 
-  // Filter by keyword if provided
-  const kw = keyword.trim().toLowerCase();
-  const series = response.data.filter(s =>
-    !kw || (s.name || "").toLowerCase().includes(kw)
-  );
-
-  return series.map(s => ({
-    id: `series_${s.series_id}`,
-    type: "url",
-    title: s.name,
-    description: s.category_name || "TV Series",
-    backdropPath: s.cover || createFallbackImage(s.name, bg_color),
-    posterPath: s.cover,
-    mediaType: "tv",
-    rating: s.rating,
-    releaseDate: s.releaseDate
-  }));
-}
-
-/* ---------- Detail Functions ---------- */
-async function getVodInfo(params = {}) {
-  const { host, username, password, vod_id, bg_color } = params;
-  
-  if (!host || !username || !password || !vod_id) {
-    throw new Error("Host, username, password, and vod_id are required");
-  }
-
-  const apiUrl = buildApiUrl(host, username, password, "get_vod_info", { vod_id });
-  const response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
-
-  if (!response?.data?.info) {
-    throw new Error("Invalid VOD info response");
-  }
-
-  const info = response.data.info;
-  return [{
-    id: `vod_detail_${vod_id}`,
-    type: "url",
-    title: info.name,
-    description: info.description || info.plot || "No description available",
-    backdropPath: info.movie_image || createFallbackImage(info.name, bg_color),
-    posterPath: info.movie_image,
-    videoUrl: `http://${host}/movie/${username}/${password}/${vod_id}.${info.container_extension || 'mp4'}`,
-    customHeaders: getDefaultHeaders(),
-    mediaType: "movie",
-    rating: info.rating,
-    releaseDate: info.releasedate,
-    duration: parseInt(info.duration_secs || 0),
-    genreTitle: info.genre
-  }];
-}
-
-async function getSeriesInfo(params = {}) {
-  const { host, username, password, series_id, bg_color } = params;
-  
-  if (!host || !username || !password || !series_id) {
-    throw new Error("Host, username, password, and series_id are required");
-  }
-
-  const apiUrl = buildApiUrl(host, username, password, "get_series_info", { series_id });
-  const response = await Widget.http.get(apiUrl, { headers: getDefaultHeaders() });
-
-  if (!response?.data?.info || !response?.data?.episodes) {
-    throw new Error("Invalid series info response");
-  }
-
-  const info = response.data.info;
-  const episodes = response.data.episodes;
-  
-  const result = [];
-  
-  // Add series info as first item
-  result.push({
-    id: `series_info_${series_id}`,
-    type: "url",
-    title: info.name,
-    description: info.description || info.plot || "No description available",
-    backdropPath: info.cover || createFallbackImage(info.name, bg_color),
-    posterPath: info.cover,
-    mediaType: "tv",
-    rating: info.rating,
-    releaseDate: info.releaseDate,
-    genreTitle: info.genre
+  // 关键词过滤
+  var kw = keyword.trim().toLowerCase();
+  var series = response.data.filter(function(s) {
+    return !kw || (s.name || "").toLowerCase().indexOf(kw) !== -1;
   });
 
-  // Add episodes grouped by season
-  Object.keys(episodes).forEach(seasonNum => {
-    const seasonEpisodes = episodes[seasonNum];
-    Object.keys(seasonEpisodes).forEach(episodeNum => {
-      const episode = seasonEpisodes[episodeNum];
+  var results = [];
+  
+  // 为每个系列获取详细信息和剧集
+  for (var i = 0; i < Math.min(series.length, 20); i++) { // 限制数量避免请求过多
+    var s = series[i];
+    try {
+      var seriesInfoUrl = buildPlayerApiUrl(host, username, password, "get_series_info", { series_id: s.series_id });
+      var seriesInfoResponse = await Widget.http.get(seriesInfoUrl, { headers: getDefaultHeaders() });
       
-      // Create related episodes for this episode (other episodes in same season)
-      const relatedEpisodes = Object.keys(seasonEpisodes)
-        .filter(epNum => epNum !== episodeNum)
-        .slice(0, 5) // Limit to 5 related episodes
-        .map(epNum => {
-          const relEp = seasonEpisodes[epNum];
-          return {
-            id: `episode_${series_id}_s${seasonNum}_e${epNum}`,
+      if (seriesInfoResponse && seriesInfoResponse.data && seriesInfoResponse.data.episodes) {
+        var info = seriesInfoResponse.data.info || {};
+        var episodes = seriesInfoResponse.data.episodes || {};
+        
+        // 添加系列主条目
+        results.push({
+          id: "series_" + s.series_id,
+          type: "url",
+          title: s.name,
+          description: info.description || info.plot || s.category_name || "TV Series",
+          backdropPath: s.cover || info.cover || createFallbackImage(s.name, bg_color),
+          posterPath: s.cover || info.cover,
+          mediaType: "tv",
+          rating: s.rating || info.rating,
+          releaseDate: s.releaseDate || info.releaseDate
+        });
+        
+        // 添加剧集
+        var episodeList = [];
+        for (var seasonNum in episodes) {
+          if (episodes.hasOwnProperty(seasonNum)) {
+            var seasonEpisodes = episodes[seasonNum];
+            for (var episodeNum in seasonEpisodes) {
+              if (seasonEpisodes.hasOwnProperty(episodeNum)) {
+                var episode = seasonEpisodes[episodeNum];
+                episodeList.push({
+                  seasonNum: seasonNum,
+                  episodeNum: episodeNum,
+                  episode: episode
+                });
+              }
+            }
+          }
+        }
+        
+        // 添加前几集作为独立条目
+        for (var j = 0; j < Math.min(episodeList.length, 5); j++) {
+          var ep = episodeList[j];
+          var relatedEpisodes = episodeList.slice(j + 1, j + 4).map(function(relEp) {
+            return {
+              id: "episode_" + s.series_id + "_s" + relEp.seasonNum + "_e" + relEp.episodeNum,
+              type: "url",
+              title: "S" + relEp.seasonNum + "E" + relEp.episodeNum + ": " + (relEp.episode.title || "Episode " + relEp.episodeNum),
+              description: relEp.episode.info || "Season " + relEp.seasonNum + ", Episode " + relEp.episodeNum,
+              backdropPath: (relEp.episode.info && relEp.episode.info.movie_image) || s.cover || createFallbackImage("S" + relEp.seasonNum + "E" + relEp.episodeNum, bg_color),
+              videoUrl: "http://" + host + "/series/" + username + "/" + password + "/" + relEp.episode.id + "." + (relEp.episode.container_extension || 'mp4'),
+              customHeaders: getDefaultHeaders(),
+              mediaType: "tv"
+            };
+          });
+          
+          results.push({
+            id: "episode_" + s.series_id + "_s" + ep.seasonNum + "_e" + ep.episodeNum,
             type: "url",
-            title: `S${seasonNum}E${epNum}: ${relEp.title}`,
-            description: relEp.info || `Season ${seasonNum}, Episode ${epNum}`,
-            backdropPath: relEp.info?.movie_image || info.cover || createFallbackImage(`S${seasonNum}E${epNum}`, bg_color),
-            posterPath: relEp.info?.movie_image || info.cover,
-            videoUrl: `http://${host}/series/${username}/${password}/${relEp.id}.${relEp.container_extension || 'mp4'}`,
+            title: "S" + ep.seasonNum + "E" + ep.episodeNum + ": " + (ep.episode.title || "Episode " + ep.episodeNum),
+            description: ep.episode.info || "Season " + ep.seasonNum + ", Episode " + ep.episodeNum,
+            backdropPath: (ep.episode.info && ep.episode.info.movie_image) || s.cover || createFallbackImage("S" + ep.seasonNum + "E" + ep.episodeNum, bg_color),
+            posterPath: (ep.episode.info && ep.episode.info.movie_image) || s.cover,
+            videoUrl: "http://" + host + "/series/" + username + "/" + password + "/" + ep.episode.id + "." + (ep.episode.container_extension || 'mp4'),
             customHeaders: getDefaultHeaders(),
             mediaType: "tv",
-            episode: parseInt(epNum),
-            duration: parseInt(relEp.info?.duration_secs || 0)
-          };
+            episode: parseInt(ep.episodeNum),
+            childItems: relatedEpisodes
+          });
+        }
+      } else {
+        // 如果无法获取剧集信息，至少添加系列条目
+        results.push({
+          id: "series_" + s.series_id,
+          type: "url",
+          title: s.name,
+          description: s.category_name || "TV Series",
+          backdropPath: s.cover || createFallbackImage(s.name, bg_color),
+          posterPath: s.cover,
+          mediaType: "tv",
+          rating: s.rating,
+          releaseDate: s.releaseDate
         });
-
-      result.push({
-        id: `episode_${series_id}_s${seasonNum}_e${episodeNum}`,
+      }
+    } catch (error) {
+      console.log("Error getting series info for " + s.series_id + ":", error.message);
+      // 添加基本系列信息
+      results.push({
+        id: "series_" + s.series_id,
         type: "url",
-        title: `S${seasonNum}E${episodeNum}: ${episode.title}`,
-        description: episode.info || `Season ${seasonNum}, Episode ${episodeNum}`,
-        backdropPath: episode.info?.movie_image || info.cover || createFallbackImage(`S${seasonNum}E${episodeNum}`, bg_color),
-        posterPath: episode.info?.movie_image || info.cover,
-        videoUrl: `http://${host}/series/${username}/${password}/${episode.id}.${episode.container_extension || 'mp4'}`,
-        customHeaders: getDefaultHeaders(),
-        mediaType: "tv",
-        episode: parseInt(episodeNum),
-        duration: parseInt(episode.info?.duration_secs || 0),
-        childItems: relatedEpisodes // Related episodes shown as recommendations
+        title: s.name,
+        description: s.category_name || "TV Series",
+        backdropPath: s.cover || createFallbackImage(s.name, bg_color),
+        posterPath: s.cover,
+        mediaType: "tv"
       });
-    });
-  });
+    }
+  }
 
-  return result;
+  return results;
 }
 
-/* ---------- Search Function ---------- */
-async function globalSearch(params = {}) {
-  const { host, username, password, keyword, bg_color } = params;
+/* ---------- Universal Search Function ---------- */
+async function universalSearch(params) {
+  params = params || {};
+  var host = params.host;
+  var username = params.username;
+  var password = params.password;
+  var keyword = params.keyword;
+  var bg_color = params.bg_color;
   
   if (!host || !username || !password) {
     throw new Error("Host, username, and password are required");
@@ -565,24 +740,24 @@ async function globalSearch(params = {}) {
     throw new Error("Search keyword must be at least 2 characters long");
   }
 
-  const results = [];
+  var results = [];
   
   try {
-    // Search in live streams
-    const liveStreams = await getLiveStreams({ host, username, password, keyword, bg_color });
-    results.push(...liveStreams.slice(0, 10)); // Limit to 10 results per category
+    // 搜索直播
+    var liveStreams = await getLiveStreams({ host: host, username: username, password: password, keyword: keyword, bg_color: bg_color });
+    results = results.concat(liveStreams.slice(0, 8));
     
-    // Search in VOD
-    const vodStreams = await getVodStreams({ host, username, password, keyword, bg_color });
-    results.push(...vodStreams.slice(0, 10));
+    // 搜索VOD
+    var vodStreams = await getVodStreams({ host: host, username: username, password: password, keyword: keyword, bg_color: bg_color });
+    results = results.concat(vodStreams.slice(0, 8));
     
-    // Search in series
-    const seriesStreams = await getSeriesStreams({ host, username, password, keyword, bg_color });
-    results.push(...seriesStreams.slice(0, 10));
+    // 搜索系列
+    var seriesStreams = await getSeriesStreams({ host: host, username: username, password: password, keyword: keyword, bg_color: bg_color });
+    results = results.concat(seriesStreams.slice(0, 8));
     
   } catch (error) {
-    console.error("Search error:", error);
-    // Return partial results if some searches fail
+    console.log("Search error:", error.message);
+    // 返回部分结果即使某些搜索失败
   }
   
   if (results.length === 0) {
@@ -590,7 +765,7 @@ async function globalSearch(params = {}) {
       id: "no_results",
       type: "url",
       title: "No Results Found",
-      description: `No content found for "${keyword}"`,
+      description: "No content found for \"" + keyword + "\"",
       backdropPath: createFallbackImage("No Results", bg_color)
     }];
   }
