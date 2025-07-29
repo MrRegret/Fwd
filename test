@@ -1,66 +1,127 @@
-/* ==================  第二步：只拉分类  ================== */
+/* ==================  WidgetMetadata  ================== */
 var WidgetMetadata = {
-  id: "xtream_step2",
-  title: "Xtream Step2",
-  description: "仅测试分类入口",
-  author: "test",
+  id: "xtream_fw",
+  title: "Xtream API Live",
+  description: "Forward-compliant Xtream Codes API client",
+  author: "VEUS",
   site: "https://github.com/InchStudio/ForwardWidgets",
-  version: "1.0.0",
+  version: "2.9.11",
   requiredVersion: "0.0.1",
+  detailCacheDuration: 60,
   modules: [
     {
-      title: "Category Only",
-      description: "",
+      title: "Channels",
+      description: "Live / VOD / Series",
       requiresWebView: false,
-      functionName: "getCats",
-      cacheDuration: 60,
+      functionName: "getChannels",
+      cacheDuration: 300,
       params: [
+        { name: "m3u_url",  type: "input", placeholder: "http://host/get.php?username=xxx&password=xxx&type=m3u_plus" },
         { name: "host",     type: "input", placeholder: "lot77162.cdngold.me" },
         { name: "username", type: "input" },
-        { name: "password", type: "input" }
+        { name: "password", type: "input" },
+        { name: "keyword",  type: "input", placeholder: "CCTV" },
+        { name: "protocol", type: "enumeration", enumOptions: [{title:"HTTP",value:"http"},{title:"HTTPS",value:"https"}], default:"http" },
+        { name: "ua",       type: "input",   placeholder: "Forward/1.3.2" }
       ]
     }
   ]
 };
 
-/* 仅返回 3 条假数据分类卡片 */
-async function getCats(params) {
-  const { host, username, password } = params;
-  if (!host || !username || !password) throw new Error("必填参数缺失");
+/* ==================  主函数：返回分类入口  ================== */
+async function getChannels(params) {
+  let { host, username, password, ua, protocol } = params;
+  if (!host && params.m3u_url) {
+    const p = parseM3uUrl(params.m3u_url);
+    if (p) ({ host, username, password, protocol } = p);
+  }
+  if (!host || !username || !password) throw new Error("请填写 host / username / password 或粘贴 M3U 链接");
 
-  /* 这里用固定假数据，先不真请求，验证结构 */
+  const UA   = ua || "Forward/1.3.2";
+  const base = `${protocol}://${host}/player_api.php?username=${username}&password=${password}`;
+
+  /* 拉取三大分类 */
+  const [liveCats, vodCats, serCats] = await Promise.all([
+    api(`${base}&action=get_live_categories`, UA),
+    api(`${base}&action=get_vod_categories`, UA),
+    api(`${base}&action=get_series_categories`, UA)
+  ]);
+
+  /* 返回分类卡片（type=link） */
   return [
-    {
-      id: "cat_live",
+    ...liveCats.map(c => ({
+      id: `live_cat_${c.category_id}`,
       type: "link",
-      title: "📺 Live",
-      description: "点击查看 Live 列表",
-      posterPath: "https://fakeimg.pl/200x120/1C1C1E/?text=Live",
-      link: "js:getStreamsByCat({type:'live',catId:1,host:'" + host + "',username:'" + username + "',password:'" + password + "'})"
-    },
-    {
-      id: "cat_vod",
+      title: `📺 ${c.category_name}`,
+      description: "点击查看频道",
+      posterPath: `https://fakeimg.pl/200x120/1C1C1E/?text=${encodeURIComponent(c.category_name)}`,
+      link: `js:getStreamsByCat(${encodeURIComponent(JSON.stringify({type:"live",catId:c.category_id,host,username,password,protocol,ua:UA}))})`
+    })),
+    ...vodCats.map(c => ({
+      id: `vod_cat_${c.category_id}`,
       type: "link",
-      title: "🎬 VOD",
-      description: "点击查看 VOD 列表",
-      posterPath: "https://fakeimg.pl/200x120/1C1C1E/?text=VOD",
-      link: "js:getStreamsByCat({type:'vod',catId:2,host:'" + host + "',username:'" + username + "',password:'" + password + "'})"
-    }
+      title: `🎬 ${c.category_name}`,
+      description: "点击查看影片",
+      posterPath: `https://fakeimg.pl/200x120/1C1C1E/?text=${encodeURIComponent(c.category_name)}`,
+      link: `js:getStreamsByCat(${encodeURIComponent(JSON.stringify({type:"vod",catId:c.category_id,host,username,password,protocol,ua:UA}))})`
+    })),
+    ...serCats.map(c => ({
+      id: `series_cat_${c.category_id}`,
+      type: "link",
+      title: `📺 ${c.category_name}`,
+      description: "点击查看剧集",
+      posterPath: `https://fakeimg.pl/200x120/1C1C1E/?text=${encodeURIComponent(c.category_name)}`,
+      link: `js:getStreamsByCat(${encodeURIComponent(JSON.stringify({type:"series",catId:c.category_id,host,username,password,protocol,ua:UA}))})`
+    }))
   ];
 }
 
-/* 二级函数：目前只返回 1 张假卡片 */
+/* ==================  二级函数：返回该分类下的流  ================== */
+/* Forward 规范：必须是一个参数对象 params */
 async function getStreamsByCat(params) {
-  return [
-    {
-      id: "fake_stream",
-      type: "url",
-      title: "Test Stream",
-      description: "测试流",
-      posterPath: "https://fakeimg.pl/400x225/1C1C1E/FFFFFF?text=Test",
-      backdropPath: "https://fakeimg.pl/400x225/1C1C1E/FFFFFF?text=Test",
-      mediaType: "tv",
-      videoUrl: "https://sample-videos.com/10/mp4/2.mp4"
-    }
-  ];
+  const { type, catId, host, username, password, ua, protocol, keyword = "" } = params;
+  const UA   = ua || "Forward/1.3.2";
+  const base = `${protocol}://${host}/player_api.php?username=${username}&password=${password}`;
+  const kw   = keyword.trim().toLowerCase();
+
+  let list = [];
+  if (type === "live") {
+    list = filter(await api(`${base}&action=get_live_streams&category_id=${catId}`, UA), kw);
+  } else if (type === "vod") {
+    list = filter(await api(`${base}&action=get_vod_streams&category_id=${catId}`, UA), kw);
+  } else if (type === "series") {
+    list = filter(await api(`${base}&action=get_series&category_id=${catId}`, UA), kw);
+  }
+
+  /* 每条都必须有 posterPath & mediaType */
+  return list.map(it => ({
+    id: `${type}_${it.stream_id || it.series_id}`,
+    type: "url",
+    title: it.name,
+    description: it.category_name || "",
+    posterPath: it.stream_icon || "https://fakeimg.pl/400x225/1C1C1E/FFFFFF?text=NoCover",
+    backdropPath: it.stream_icon || "",
+    mediaType: type === "live" ? "tv" : "movie",
+    videoUrl: `${base.replace("player_api.php", type)}/${it.stream_id || it.series_id}.${type === "live" ? "ts" : (it.container_extension || "mp4")}`
+  }));
+}
+
+/* ==================  工具函数  ================== */
+function parseM3uUrl(raw) {
+  try {
+    const u = new URL(raw);
+    return { protocol: u.protocol.slice(0, -1), host: u.hostname, username: u.searchParams.get("username"), password: u.searchParams.get("password") };
+  } catch { return null; }
+}
+async function api(url, ua) {
+  try {
+    const res = await Widget.http.get(url, { headers: { "User-Agent": ua } });
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (e) {
+    console.error("Request failed:", e);
+    throw new Error("网络请求失败");
+  }
+}
+function filter(arr, kw) {
+  return kw ? arr.filter(i => (i.name || "").toLowerCase().includes(kw)) : arr;
 }
