@@ -1,67 +1,55 @@
-/* ---------- Widget Metadata ---------- */
+/* ---------- WidgetMetadata（必须放在开头） ---------- */
 var WidgetMetadata = {
-  id: "xtream_plus",
-  title: "Xtream Plus",
-  description: "Parse Xtream-Codes m3u_plus link → Live/VOD with category, search, pagination",
+  id: "xtream_official_v2",
+  title: "Xtream Official V2",
+  description: "使用官方 REST API 拉取 Live/VOD，支持分类+分页+关键词",
   author: "kimi",
   site: "https://github.com/InchStudio/ForwardWidgets",
-  version: "3.0.0",
+  version: "11.0.0",
   requiredVersion: "0.0.1",
   detailCacheDuration: 300,
   modules: [
     {
       title: "Live",
-      description: "Live channels",
-      functionName: "getLive",
+      description: "直播频道",
+      requiresWebView: false,
+      sectionMode: true,
       cacheDuration: 300,
+      functionName: "getLive",
       params: [
-        { name: "url", type: "input", placeholder: "http://host/get.php?username=xxx&password=xxx&type=m3u_plus&output=ts" },
-        { name: "keyword", type: "input", placeholder: "CCTV / HBO ..." },
-        { name: "page", type: "page", value: 1 }
+        { name: "url",     type: "input",   placeholder: "https://host/get.php?username=xxx&password=xxx&type=m3u_plus" },
+        { name: "keyword", type: "input",   placeholder: "关键词过滤" },
+        { name: "page",    type: "page",    value: 1 }
       ]
     },
     {
       title: "VOD",
-      description: "Movies & Series",
-      functionName: "getVod",
+      description: "电影/剧集",
+      requiresWebView: false,
+      sectionMode: true,
       cacheDuration: 600,
+      functionName: "getVod",
       params: [
-        { name: "url", type: "input", placeholder: "同上" },
-        { name: "keyword", type: "input", placeholder: "Avatar / The Office ..." },
-        { name: "page", type: "page", value: 1 }
+        { name: "url",     type: "input",   placeholder: "同上" },
+        { name: "keyword", type: "input",   placeholder: "关键词过滤" },
+        { name: "page",    type: "page",    value: 1 }
       ]
     }
   ]
 };
 
-/* ---------- 通用工具 ---------- */
+/* ---------- 工具 ---------- */
 function parseUrl(fullUrl) {
   try {
-    const url = new URL(fullUrl);
-    const host = url.protocol + "//" + url.hostname + (url.port ? ":" + url.port : "");
-    const params = url.searchParams;
+    const u = new URL(fullUrl);
     return {
-      host,
-      username: params.get("username"),
-      password: params.get("password")
+      host: `${u.protocol}//${u.host}`,
+      username: u.searchParams.get("username"),
+      password: u.searchParams.get("password")
     };
-  } catch (_) {
-    throw new Error("❌ 无法解析链接，请检查格式是否为 http(s)://host/get.php?username=xxx&password=xxx&type=m3u_plus&output=ts");
+  } catch {
+    throw new Error("❌ 无法解析 m3u_plus 链接");
   }
-}
-
-async function apiRequest({ host, username, password, action, skip = 0, max = 50 }) {
-  const url = `${host}/player_api.php?username=${username}&password=${password}&action=${action}&limit=${max},${skip}`;
-  const headers = { "User-Agent": "AptvPlayer/1.4.11" };
-  const res = await Widget.http.get(url, { headers });
-  if (!Array.isArray(res?.data)) throw new Error("❌ 服务器返回异常，请确认链接有效且网络畅通");
-  return res.data;
-}
-
-function filterKeyword(arr, keyword) {
-  if (!keyword) return arr;
-  const kw = keyword.trim().toLowerCase();
-  return arr.filter(it => (it.name || "").toLowerCase().includes(kw));
 }
 
 /* ---------- Live ---------- */
@@ -71,35 +59,32 @@ async function getLive(params = {}) {
   const skip = (page - 1) * 50;
 
   const [cats, streams] = await Promise.all([
-    apiRequest({ host, username, password, action: "get_live_categories" }),
-    apiRequest({ host, username, password, action: "get_live_streams", skip })
+    (await Widget.http.get(`${host}/player_api.php?username=${username}&password=${password}&action=get_live_categories`)).data,
+    (await Widget.http.get(`${host}/player_api.php?username=${username}&password=${password}&action=get_live_streams&limit=50,${skip}`)).data
   ]);
 
-  const filtered = filterKeyword(streams, keyword);
+  const kw = keyword?.trim().toLowerCase();
+  const filtered = kw ? streams.filter(s => s.name.toLowerCase().includes(kw)) : streams;
 
-  // 按分类分组
   const catMap = new Map(cats.map(c => [c.category_id, c.category_name]));
-  const grouped = filtered.reduce((acc, ch) => {
-    const cat = catMap.get(ch.category_id) || "Other";
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push({
-      id: `${host}/live/${username}/${password}/${ch.stream_id}.ts`,
+  const grouped = filtered.reduce((g, s) => {
+    const cat = catMap.get(s.category_id) || "Other";
+    (g[cat] ||= []).push({
+      id: `${host}/live/${username}/${password}/${s.stream_id}.ts`,
       type: "url",
-      title: ch.name,
-      backdropPath: ch.stream_icon || `https://fakeimg.pl/200x120/1C1C1E/?text=${encodeURIComponent(ch.name)}`,
+      title: s.name,
+      backdropPath: s.stream_icon || `https://fakeimg.pl/200x120/1C1C1E/?text=${encodeURIComponent(s.name)}`,
       description: cat,
-      videoUrl: `${host}/live/${username}/${password}/${ch.stream_id}.ts`,
-      customHeaders: { "User-Agent": "AptvPlayer/1.4.11" }
+      videoUrl: `${host}/live/${username}/${password}/${s.stream_id}.ts`
     });
-    return acc;
+    return g;
   }, {});
 
-  // 每个分类变成一个 section
-  return Object.entries(grouped).map(([catName, items]) => ({
-    id: catName,
-    type: "link",
-    title: catName,
-    description: `${items.length} 频道`,
+  return Object.entries(grouped).map(([cat, items]) => ({
+    id: cat,
+    type: "url",
+    title: cat,
+    description: `${items.length} 个频道`,
     childItems: items
   }));
 }
@@ -111,31 +96,20 @@ async function getVod(params = {}) {
   const skip = (page - 1) * 50;
 
   const [cats, vods] = await Promise.all([
-    apiRequest({ host, username, password, action: "get_vod_categories" }),
-    apiRequest({ host, username, password, action: "get_vod_streams", skip })
+    (await Widget.http.get(`${host}/player_api.php?username=${username}&password=${password}&action=get_vod_categories`)).data,
+    (await Widget.http.get(`${host}/player_api.php?username=${username}&password=${password}&action=get_vod_streams&limit=50,${skip}`)).data
   ]);
 
-  const filtered = filterKeyword(vods, keyword);
-
+  const kw = keyword?.trim().toLowerCase();
+  const filtered = kw ? vods.filter(v => v.name.toLowerCase().includes(kw)) : vods;
   const catMap = new Map(cats.map(c => [c.category_id, c.category_name]));
 
-  return filtered.map(vod => {
-    const seriesId = vod.series_id || vod.stream_id;
-    return {
-      id: `${host}/movie/${username}/${password}/${vod.stream_id}.mp4`,
-      type: "link",
-      title: vod.name,
-      posterPath: vod.stream_icon,
-      description: catMap.get(vod.category_id) || "VOD",
-      link: `${host}/movie/${username}/${password}/${vod.stream_id}.mp4`,
-      // 多集：一次性拉完，数量大时可再分页
-      childItems: vod.series_id
-        ? null // Series 有单独接口，需 loadDetail 再取
-        : []   // 单部电影
-    };
-  });
+  return filtered.map(v => ({
+    id: `${host}/movie/${username}/${password}/${v.stream_id}.mp4`,
+    type: "url",
+    title: v.name,
+    posterPath: v.stream_icon,
+    description: catMap.get(v.category_id) || "VOD",
+    videoUrl: `${host}/movie/${username}/${password}/${v.stream_id}.mp4`
+  }));
 }
-
-/* ---------- 可选：Series 详情再展开 ---------- */
-// 如需实现电视剧多集，可再写一个 loadDetail 函数
-// 这里先留空，后续若需要我再补充
