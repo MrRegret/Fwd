@@ -1,11 +1,11 @@
-/* ---------- Widget Metadata（保持原样，零改动） ---------- */
+/* ---------- WidgetMetadata ---------- */
 var WidgetMetadata = {
-  id: "xtream_api_en",
+  id: "xtream_api_enhance",
   title: "Xtream API Live",
   description: "Fetch live channels via official Xtream-Codes REST API with keyword search",
   author: "🎁 Discount Code：VEUS",
   site: "🎁 Discount Code：VEUS",
-  version: "2.8.2",
+  version: "2.9.0",
   requiredVersion: "0.0.1",
   detailCacheDuration: 60,
   modules: [
@@ -16,90 +16,120 @@ var WidgetMetadata = {
       functionName: "getChannels",
       cacheDuration: 300,
       params: [
-        { name: "host",     title: "Server Host",   type: "input", placeholder: "lot77162.cdngold.me" },
-        { name: "username", title: "Username",      type: "input" },
-        { name: "password", title: "Password",      type: "input" },
-        { name: "keyword",  title: "Keyword",       type: "input", placeholder: "CCTV, Sports..." },
-        { name: "bg_color", title: "Logo BG Color", type: "input", placeholder: "1C1C1E" }
+        { name: "m3u_url", type: "input", placeholder: "http://host/get.php?username=xxx&password=xxx&type=m3u_plus" },
+        { name: "host", type: "input", placeholder: "lot77162.cdngold.me" },
+        { name: "username", type: "input" },
+        { name: "password", type: "input" },
+        { name: "keyword", type: "input", placeholder: "CCTV, Sports..." },
+        { name: "protocol", type: "enumeration", enumOptions: [
+            { title: "HTTP", value: "http" },
+            { title: "HTTPS", value: "https" }
+          ], default: "http" },
+        { name: "ua", type: "input", placeholder: "Forward/1.3.2" },
+        { name: "bg_color", type: "input", placeholder: "1C1C1E" }
       ]
     }
   ]
 };
 
-/* ---------- 升级后的主函数 ---------- */
+/* ---------- 主函数 ---------- */
 async function getChannels(params = {}) {
-  const { host, username, password, keyword = "", bg_color } = params;
-  if (!host || !username || !password) {
-    throw new Error("host / username / password are required");
+  let { host, username, password, keyword, bg_color, ua, protocol } = params;
+
+  /* 解析 M3U 链接 */
+  if (!host && params.m3u_url) {
+    const p = parseM3uUrl(params.m3u_url);
+    if (p) ({ host, username, password, protocol } = p);
   }
+  if (!host || !username || !password) throw new Error("请填写 host / username / password，或直接粘贴 M3U 链接");
 
-  /* 统一 UA 与基础 URL */
-  const UA = "AptvPlayer/1.4.11";
-  const base = `http://${host}/player_api.php?username=${username}&password=${password}`;
-  const kw   = keyword.trim().toLowerCase();
+  const UA = ua || "Forward/1.3.2";               // ← 全部统一
+  const base = `${protocol}://${host}/player_api.php?username=${username}&password=${password}`;
+  const kw = keyword ? keyword.trim().toLowerCase() : "";
 
-  /* 1. 拉分类 */
-  const liveCats = await api(`${base}&action=get_live_categories`);
-  const vodCats  = await api(`${base}&action=get_vod_categories`);
-  const serCats  = await api(`${base}&action=get_series_categories`);
-
-  /* 2. 拉内容并过滤 */
-  const liveCh  = filter(await api(`${base}&action=get_live_streams`), kw);
-  const vodMov  = filter(await api(`${base}&action=get_vod_streams`), kw);
-  const serList = filter(await api(`${base}&action=get_series`), kw);
+  const [liveCats, vodCats, serCats] = await Promise.all([
+    api(`${base}&action=get_live_categories`, UA),
+    api(`${base}&action=get_vod_categories`, UA),
+    api(`${base}&action=get_series_categories`, UA)
+  ]);
 
   const cards = [];
-
-  /* 3. 分类入口（点击即可查看该分类下的频道/剧集） */
-  liveCats.forEach(c => cards.push(catCard("📺 Live", c, "live")));
-  vodCats.forEach(c => cards.push(catCard("🎬 VOD", c, "vod")));
-  serCats.forEach(c => cards.push(catCard("📺 Series", c, "series")));
-
-  /* 4. 直播频道（最多 30 条，带关键词过滤） */
-  liveCh.slice(0, 30).forEach(ch => cards.push(itemCard(ch.name, ch, `${base.replace("player_api.php", "live")}/${ch.stream_id}.ts`, "live")));
-
-  /* 5. 电影（最多 20 条） */
-  vodMov.slice(0, 20).forEach(m => cards.push(itemCard(m.name, m, `${base.replace("player_api.php", "movie")}/${m.stream_id}.${(m.container_extension || 'mp4')}`, "movie")));
-
-  /* 6. 剧集：首集 + 相关 4 集作为 childItems 推荐 */
-  for (const s of serList.slice(0, 10)) {
-    const info = await api(`${base}&action=get_series_info&series_id=${s.series_id}`);
-    const eps  = Object.values(info.episodes || {}).flat().slice(0, 5);
-    if (!eps.length) continue;
-
-    const mainEp = eps[0];
-    const related = eps.slice(1, 5).map(e =>
-      itemCard(`S${e.season}E${e.episode_num}`, e, `${base.replace("player_api.php", "series")}/${e.id}.${e.container_extension || 'mp4'}`, "tv")
-    );
-
-    cards.push({
-      id: `series_${s.series_id}_main`,
-      type: "url",
-      title: `${s.name} - S${mainEp.season}E${mainEp.episode_num}`,
-      description: info.info?.plot || s.category_name,
-      backdropPath: s.cover || info.info?.cover || "",
-      videoUrl: `${base.replace("player_api.php", "series")}/${mainEp.id}.${mainEp.container_extension || 'mp4'}`,
-      childItems: related
-    });
-  }
-
+  liveCats.slice(0, 30).forEach(c => cards.push(catCard("📺 Live", c, "live", base, UA)));
+  vodCats.slice(0, 30).forEach(c => cards.push(catCard("🎬 VOD", c, "vod", base, UA)));
+  serCats.slice(0, 30).forEach(c => cards.push(catCard("📺 Series", c, "series", base, UA)));
   return cards;
 }
 
+/* ---------- 二级函数 ---------- */
+async function getStreamsByCat({ type, catId, host, username, password, keyword, ua, protocol }) {
+  const base = `${protocol}://${host}/player_api.php?username=${username}&password=${password}`;
+  const UA = ua || "Forward/1.3.2";
+  const kw = keyword ? keyword.trim().toLowerCase() : "";
+
+  let data = [];
+  if (type === "live") {
+    data = filter(await api(`${base}&action=get_live_streams&category_id=${catId}`, UA), kw);
+  } else if (type === "vod") {
+    data = filter(await api(`${base}&action=get_vod_streams&category_id=${catId}`, UA), kw);
+  } else if (type === "series") {
+    data = filter(await api(`${base}&action=get_series&category_id=${catId}`, UA), kw);
+  }
+  return data.map(it => itemCard(it.name, it,
+    `${base.replace("player_api.php", type)}/${it.stream_id}.${type === "live" ? "ts" : (it.container_extension || "mp4")}`,
+    type
+  ));
+}
+
 /* ---------- 工具函数 ---------- */
-async function api(url) {
-  const res = await Widget.http.get(url, { headers: { "User-Agent": "AptvPlayer/1.4.11" } });
-  return Array.isArray(res.data) ? res.data : [];
+function parseM3uUrl(raw) {
+  try {
+    const u = new URL(raw);
+    return {
+      protocol: u.protocol.slice(0, -1),
+      host: u.hostname,
+      username: u.searchParams.get("username"),
+      password: u.searchParams.get("password")
+    };
+  } catch { return null; }
+}
+
+async function api(url, ua) {
+  try {
+    const res = await Widget.http.get(url, { headers: { "User-Agent": ua } });
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (e) {
+    console.error("Request failed:", e);
+    throw new Error("网络请求失败");
+  }
 }
 
 function filter(arr, kw) {
-  return kw ? arr.filter(i => (i.name || '').toLowerCase().includes(kw)) : arr;
+  return kw ? arr.filter(i => (i.name || "").toLowerCase().includes(kw)) : arr;
 }
 
-function catCard(icon, cat, type) {
-  return { id: `${type}_cat_${cat.category_id}`, type: "url", title: `${icon} ${cat.category_name}`, description: `点击查看 ${type} 列表`, backdropPath: `https://fakeimg.pl/200x120/1C1C1E/?text=${encodeURIComponent(cat.category_name)}` };
+function catCard(icon, cat, type, base, UA) {
+  const host = base.match(/https?:\/\/([^\/]+)/)[1];
+  const username = base.match(/username=([^&]+)/)[1];
+  const password = base.match(/password=([^&]+)/)[1];
+  const protocol = base.split("://")[0];
+  return {
+    id: `${type}_cat_${cat.category_id}`,
+    type: "url",
+    title: `${icon} ${cat.category_name}`,
+    url: `js:getStreamsByCat({type:"${type}",catId:${cat.category_id},host:"${host}",username:"${username}",password:"${password}",protocol:"${protocol}",ua:"${UA}"})`,
+    backdropPath: `https://fakeimg.pl/200x120/1C1C1E/?text=${encodeURIComponent(cat.category_name)}`
+  };
 }
 
 function itemCard(title, obj, url, media) {
-  return { id: url, type: "url", title, description: obj.category_name || "", backdropPath: obj.stream_icon || "", videoUrl: url, mediaType: media };
+  return {
+    id: url,
+    type: "url",
+    title,
+    description: obj.category_name || "",
+    posterPath: obj.stream_icon || "",
+    backdropPath: obj.stream_icon || "",
+    mediaType: media === "live" ? "tv" : "movie",
+    videoUrl: url
+  };
 }
