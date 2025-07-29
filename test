@@ -1,25 +1,27 @@
-/* ---------- Widget Metadata ---------- */
 var WidgetMetadata = {
-  id: "xtream_live_plus",
-  title: "Xtream Live+",
-  description: "Auto-parse host/user/pass, category drill-down, keyword search, VOD series support",
+  id: "xtream_live_safe",
+  title: "Xtream Live (Manual)",
+  description: "Input host/user/pass manually, HTTPS supported, category + keyword + VOD series",
   author: "Forward Team",
   site: "https://forward.example.com",
-  version: "3.0.0",
+  version: "3.1.0",
   requiredVersion: "0.0.1",
   detailCacheDuration: 60,
   modules: [
     {
       title: "Live Categories",
-      description: "Pick a category to browse channels page-by-page",
+      description: "Select category → pageable channel list",
       requiresWebView: false,
       sectionMode: true,
-      functionName: "getCategories",
+      functionName: "getChannels",
       cacheDuration: 600,
       params: [
-        { name: "url",   title: "Portal/M3U URL", type: "input", placeholder: "https://xxx/get.php?username=xxx&password=yyy&type=m3u_plus" },
-        { name: "keyword", title: "Keyword Filter", type: "input", placeholder: "CCTV, HBO…" },
-        { name: "page",  title: "Page", type: "page", value: 1 }
+        { name: "host",     title: "Server Host",   type: "input", placeholder: "lot77162.cdngold.me" },
+        { name: "username", title: "Username",      type: "input" },
+        { name: "password", title: "Password",      type: "input" },
+        { name: "https",    title: "HTTPS",         type: "enumeration", enumOptions: [{title:"HTTP",value:"http"},{title:"HTTPS",value:"https"}], value: "http" },
+        { name: "keyword",  title: "Keyword",       type: "input", placeholder: "CCTV, HBO…" },
+        { name: "page",     title: "Page",          type: "page", value: 1 }
       ]
     }
   ],
@@ -27,104 +29,79 @@ var WidgetMetadata = {
     title: "Search",
     functionName: "search",
     params: [
-      { name: "url",   title: "Portal/M3U URL", type: "input" },
-      { name: "keyword", title: "Keyword", type: "input", required: true }
+        { name: "host",     title: "Host",      type: "input" },
+        { name: "username", title: "Username",  type: "input" },
+        { name: "password", title: "Password",  type: "input" },
+        { name: "https",    title: "HTTPS",     type: "enumeration", enumOptions: [{title:"HTTP",value:"http"},{title:"HTTPS",value:"https"}], value: "http" },
+        { name: "keyword",  title: "Keyword",   type: "input", required: true }
     ]
   }
 };
 
 /* ===========================================================================
-   工具函数
+   工具：简单校验
    ========================================================================== */
-function parseUrl(raw) {
-  // 支持 http/https，自动提取 host / username / password
-  try {
-    const u = new URL(raw);
-    const https = u.protocol === "https:";
-    const host = u.hostname + (u.port ? `:${u.port}` : "");
-    const params = u.searchParams;
-    return {
-      host,
-      username: params.get("username") || "",
-      password: params.get("password") || "",
-      protocol: https ? "https" : "http"
-    };
-  } catch {
-    throw new Error("Invalid Portal/M3U URL");
-  }
-}
-
-function safe(v, def = "") {
-  return (v || def).toString().trim();
+function sanitize(str) {
+  return str.toString().trim();
 }
 
 /* ===========================================================================
-   主函数 1：拉分类
+   主函数：分类分页
    ========================================================================== */
-async function getCategories(params = {}) {
-  const { url, keyword = "", page = 1 } = params;
-  if (!url) throw new Error("Portal/M3U URL required");
+async function getChannels(params = {}) {
+  const { host, username, password, https = "http", keyword = "", page = 1 } = params;
+  if (!host || !username || !password) throw new Error("Host / Username / Password required");
 
-  const { host, username, password, protocol } = parseUrl(url);
-  const api = `${protocol}://${host}/player_api.php`;
-  const UA = "Forward/1.3.2";
-  const qs = `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+  const base = `${https}://${sanitize(host)}`;
+  const api  = `${base}/player_api.php`;
+  const qs   = `username=${encodeURIComponent(sanitize(username))}&password=${encodeURIComponent(sanitize(password))}`;
+  const UA   = "Forward/1.3.2";
 
-  // 1. 分类
+  /* 1. 分类列表 */
   const catRes = await Widget.http.get(`${api}?${qs}&action=get_live_categories`, { headers: { "User-Agent": UA } });
   if (!Array.isArray(catRes.data)) throw new Error("Failed to fetch categories");
   const cats = catRes.data.filter(c => c.category_name);
 
-  // 2. 当前分类 id
-  const pageSize = 30;
-  const catIdx = Math.floor((page - 1) / pageSize);
-  const category = cats[catIdx];
+  /* 2. 分页定位 */
+  const PAGE_SIZE = 30;
+  const catIdx    = Math.floor((page - 1) / PAGE_SIZE);
+  const category  = cats[catIdx];
   if (!category) return [];
 
-  const catId = category.category_id;
-  const offset = ((page - 1) % pageSize) * pageSize;
+  const catId   = category.category_id;
+  const offset  = ((page - 1) % PAGE_SIZE) * PAGE_SIZE;
 
-  // 3. 拉当前分类下的频道
-  const chRes = await Widget.http.get(
-    `${api}?${qs}&action=get_live_streams&category_id=${catId}`,
-    { headers: { "User-Agent": UA } }
-  );
-  if (!Array.isArray(chRes.data)) throw new Error("No channels in this category");
-
+  /* 3. 当前分类的频道 */
+  const chRes = await Widget.http.get(`${api}?${qs}&action=get_live_streams&category_id=${catId}`, { headers: { "User-Agent": UA } });
+  if (!Array.isArray(chRes.data)) throw new Error("No channels");
   let channels = chRes.data;
-  // 4. 关键词二次过滤（不区分大小写）
   const kw = keyword.toLowerCase();
   if (kw) channels = channels.filter(c => (c.name || "").toLowerCase().includes(kw));
 
-  // 5. 分页
-  const start = offset;
-  const end   = start + pageSize;
-  const slice = channels.slice(start, end);
-
-  // 6. 组装返回
+  const slice = channels.slice(offset, offset + PAGE_SIZE);
   return slice.map(c => ({
-    id: `${protocol}://${host}/live/${username}/${password}/${c.stream_id}.ts`,
+    id: `${base}/live/${sanitize(username)}/${sanitize(password)}/${c.stream_id}.ts`,
     type: "url",
-    title: safe(c.name),
-    description: safe(c.category_name),
-    posterPath: safe(c.stream_icon),
-    backdropPath: safe(c.stream_icon),
-    videoUrl: `${protocol}://${host}/live/${username}/${password}/${c.stream_id}.ts`,
+    title: sanitize(c.name),
+    description: sanitize(c.category_name),
+    posterPath: sanitize(c.stream_icon),
+    backdropPath: sanitize(c.stream_icon),
+    videoUrl: `${base}/live/${sanitize(username)}/${sanitize(password)}/${c.stream_id}.ts`,
     customHeaders: { "User-Agent": UA }
   }));
 }
 
 /* ===========================================================================
-   主函数 2：全库关键词搜索
+   搜索：含 VOD 系列
    ========================================================================== */
 async function search(params = {}) {
-  const { url, keyword } = params;
-  if (!url || !keyword) throw new Error("URL and keyword required");
+  const { host, username, password, https = "http", keyword } = params;
+  if (!host || !username || !password || !keyword) throw new Error("Missing required params");
 
-  const { host, username, password, protocol } = parseUrl(url);
-  const api = `${protocol}://${host}/player_api.php`;
-  const UA  = "Forward/1.3.2";
-  const qs  = `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+  const base = `${https}://${sanitize(host)}`;
+  const api  = `${base}/player_api.php`;
+  const qs   = `username=${encodeURIComponent(sanitize(username))}&password=${encodeURIComponent(sanitize(password))}`;
+  const UA   = "Forward/1.3.2";
 
   const res = await Widget.http.get(`${api}?${qs}&action=get_live_streams`, { headers: { "User-Agent": UA } });
   if (!Array.isArray(res.data)) return [];
@@ -132,42 +109,37 @@ async function search(params = {}) {
   const kw = keyword.toLowerCase();
   const hits = res.data.filter(c => (c.name || "").toLowerCase().includes(kw));
 
-  // 若结果带 series_id，拉系列其它集作为 childItems
+  /* 支持 VOD 系列 */
   const enriched = await Promise.all(
     hits.slice(0, 30).map(async c => {
       let childItems = [];
       if (c.series_id) {
         try {
-          const serRes = await Widget.http.get(
-            `${api}?${qs}&action=get_series_info&series_id=${c.series_id}`,
-            { headers: { "User-Agent": UA } }
-          );
+          const serRes = await Widget.http.get(`${api}?${qs}&action=get_series_info&series_id=${c.series_id}`, { headers: { "User-Agent": UA } });
           if (serRes.data?.episodes) {
             childItems = serRes.data.episodes.map(e => ({
-              id: `${protocol}://${host}/series/${username}/${password}/${e.id}.mp4`,
+              id: `${base}/series/${sanitize(username)}/${sanitize(password)}/${e.id}.mp4`,
               type: "url",
-              title: safe(e.title),
+              title: sanitize(e.title),
               episode: parseInt(e.episode_num) || 0,
-              videoUrl: `${protocol}://${host}/series/${username}/${password}/${e.id}.mp4`,
+              videoUrl: `${base}/series/${sanitize(username)}/${sanitize(password)}/${e.id}.mp4`,
               customHeaders: { "User-Agent": UA }
             }));
           }
         } catch { /* ignore */ }
       }
-
       return {
-        id: `${protocol}://${host}/live/${username}/${password}/${c.stream_id}.ts`,
+        id: `${base}/live/${sanitize(username)}/${sanitize(password)}/${c.stream_id}.ts`,
         type: "url",
-        title: safe(c.name),
-        description: safe(c.category_name),
-        posterPath: safe(c.stream_icon),
-        backdropPath: safe(c.stream_icon),
-        videoUrl: `${protocol}://${host}/live/${username}/${password}/${c.stream_id}.ts`,
+        title: sanitize(c.name),
+        description: sanitize(c.category_name),
+        posterPath: sanitize(c.stream_icon),
+        backdropPath: sanitize(c.stream_icon),
+        videoUrl: `${base}/live/${sanitize(username)}/${sanitize(password)}/${c.stream_id}.ts`,
         childItems,
         customHeaders: { "User-Agent": UA }
       };
     })
   );
-
   return enriched;
 }
