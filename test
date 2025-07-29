@@ -1,245 +1,141 @@
 /* ---------- Widget Metadata ---------- */
 var WidgetMetadata = {
-  id: "xtream_full",
-  title: "Xtream FULL (Live+VOD)",
-  description: "支持 http/https、m3u 链接直接粘贴、分类分页、关键词搜索、VOD 多集合并",
-  author: "VEUS",
-  site: "VEUS",
-  version: "2.10.3",
+  id: "xtream_plus",
+  title: "Xtream Plus",
+  description: "Parse Xtream-Codes m3u_plus link → Live/VOD with category, search, pagination",
+  author: "kimi",
+  site: "https://github.com/InchStudio/ForwardWidgets",
+  version: "3.0.0",
   requiredVersion: "0.0.1",
-  detailCacheDuration: 60,
+  detailCacheDuration: 300,
   modules: [
     {
-      title: "Live 频道",
-      description: "按分类浏览直播频道（支持分页）",
-      requiresWebView: false,
-      functionName: "getLiveCategories",
+      title: "Live",
+      description: "Live channels",
+      functionName: "getLive",
       cacheDuration: 300,
       params: [
-        { name: "host", title: "m3u 完整链接 或 Host", type: "input", placeholder: "http://lot77162.cdngold.me" },
-        { name: "username", title: "Username(选填)", type: "input" },
-        { name: "password", title: "Password(选填)", type: "input" },
-        { name: "keyword", title: "关键词过滤", type: "input", placeholder: "CCTV" },
-        { name: "page", title: "页码", type: "page" }
+        { name: "url", type: "input", placeholder: "http://host/get.php?username=xxx&password=xxx&type=m3u_plus&output=ts" },
+        { name: "keyword", type: "input", placeholder: "CCTV / HBO ..." },
+        { name: "page", type: "page", value: 1 }
       ]
     },
     {
-      title: "VOD 点播",
-      description: "按分类浏览点播内容（支持分页、多集）",
-      requiresWebView: false,
-      functionName: "getVodCategories",
-      cacheDuration: 300,
+      title: "VOD",
+      description: "Movies & Series",
+      functionName: "getVod",
+      cacheDuration: 600,
       params: [
-        { name: "host", title: "m3u 完整链接 或 Host", type: "input" },
-        { name: "username", title: "Username(选填)", type: "input" },
-        { name: "password", title: "Password(选填)", type: "input" },
-        { name: "keyword", title: "关键词过滤", type: "input" },
-        { name: "page", title: "页码", type: "page" }
+        { name: "url", type: "input", placeholder: "同上" },
+        { name: "keyword", type: "input", placeholder: "Avatar / The Office ..." },
+        { name: "page", type: "page", value: 1 }
       ]
     }
-  ],
-  search: {
-    title: "全网搜索",
-    functionName: "searchAll",
-    params: [
-      { name: "host", title: "m3u 完整链接 或 Host", type: "input" },
-      { name: "username", title: "Username(选填)", type: "input" },
-      { name: "password", title: "Password(选填)", type: "input" },
-      { name: "keyword", title: "关键词", type: "input" }
-    ]
-  }
+  ]
 };
 
-/* ---------- 工具函数 ---------- */
-function parseCredentials(rawHost) {
-  let protocol = "http";
-  let host = rawHost.trim();
-  let username = "";
-  let password = "";
-
+/* ---------- 通用工具 ---------- */
+function parseUrl(fullUrl) {
   try {
-    const url = new URL(rawHost);
-    protocol = url.protocol.slice(0, -1);          // "http" or "https"
-    host = url.hostname + (url.port ? ":" + url.port : "");
-    username = url.searchParams.get("username") || "";
-    password = url.searchParams.get("password") || "";
+    const url = new URL(fullUrl);
+    const host = url.protocol + "//" + url.hostname + (url.port ? ":" + url.port : "");
+    const params = url.searchParams;
+    return {
+      host,
+      username: params.get("username"),
+      password: params.get("password")
+    };
   } catch (_) {
-    // 不是合法 URL，按普通 host 处理
+    throw new Error("❌ 无法解析链接，请检查格式是否为 http(s)://host/get.php?username=xxx&password=xxx&type=m3u_plus&output=ts");
   }
-  return { protocol, host, username, password };
 }
 
-/* 统一提取并补全 params */
-function resolveParams(raw) {
-  // 先解析 host 字段
-  const parsed = parseCredentials(raw.host || "");
-  // 用户手动填的优先级最高
-  parsed.username = raw.username || parsed.username;
-  parsed.password = raw.password || parsed.password;
-  return parsed;
-}
-
-async function apiGet(base, query) {
-  const qs = new URLSearchParams(query).toString();
-  const url = `${base}/player_api.php?${qs}`;
+async function apiRequest({ host, username, password, action, skip = 0, max = 50 }) {
+  const url = `${host}/player_api.php?username=${username}&password=${password}&action=${action}&limit=${max},${skip}`;
   const headers = { "User-Agent": "AptvPlayer/1.4.11" };
   const res = await Widget.http.get(url, { headers });
-  if (!res?.data) throw new Error("API 无响应");
+  if (!Array.isArray(res?.data)) throw new Error("❌ 服务器返回异常，请确认链接有效且网络畅通");
   return res.data;
 }
 
-/* ---------- Live 分类 ---------- */
-async function getLiveCategories(params = {}) {
-  const { host, username, password, keyword, page = 1 } = { ...params, ...resolveParams(params) };
-  if (!host || !username || !password) throw new Error("host / username / password 缺失");
-
-  const base = `${resolveParams(params).protocol}://${host}`;
-  const cats = await apiGet(base, { username, password, action: "get_live_categories" });
-  if (!Array.isArray(cats)) throw new Error("分类接口异常");
-
-  const kw = keyword ? keyword.trim().toLowerCase() : "";
-  const filtered = kw ? cats.filter(c => (c.category_name || "").toLowerCase().includes(kw)) : cats;
-
-  const limit = 20;
-  const offset = (page - 1) * limit;
-  const slice = filtered.slice(offset, offset + limit);
-
-  return slice.map(c => ({
-    id: `live_cat_${c.category_id}`,
-    type: "link",
-    title: c.category_name,
-    link: `forward://xtream_full/getLiveByCat?host=${params.host}&cat=${c.category_id}&page=1`
-  }));
-}
-
-/* ---------- 按 Live 分类加载频道 ---------- */
-async function getLiveByCat(params = {}) {
-  const { host, username, password, cat, keyword, page = 1 } = { ...params, ...resolveParams(params) };
-  const base = `${resolveParams(params).protocol}://${host}`;
-
-  const streams = await apiGet(base, { username, password, action: "get_live_streams", category_id: cat });
-  if (!Array.isArray(streams)) throw new Error("频道接口异常");
-
-  const kw = keyword ? keyword.trim().toLowerCase() : "";
-  let filtered = kw ? streams.filter(s => (s.name || "").toLowerCase().includes(kw)) : streams;
-
-  const limit = 50;
-  const offset = (page - 1) * limit;
-  filtered = filtered.slice(offset, offset + limit);
-
-  return filtered.map(s => ({
-    id: `${base}/live/${username}/${password}/${s.stream_id}.ts`,
-    type: "url",
-    title: s.name,
-    backdropPath: s.stream_icon || `https://fakeimg.pl/200x120/1C1C1E/ffffff/?text=${encodeURIComponent(s.name)}`,
-    description: s.category_name || "",
-    videoUrl: `${base}/live/${username}/${password}/${s.stream_id}.ts`,
-    customHeaders: { "User-Agent": "AptvPlayer/1.4.11" }
-  }));
-}
-
-/* ---------- VOD 分类 ---------- */
-async function getVodCategories(params = {}) {
-  const { host, username, password, keyword, page = 1 } = { ...params, ...resolveParams(params) };
-  if (!host || !username || !password) throw new Error("host / username / password 缺失");
-
-  const base = `${resolveParams(params).protocol}://${host}`;
-  const cats = await apiGet(base, { username, password, action: "get_vod_categories" });
-  if (!Array.isArray(cats)) throw new Error("VOD 分类接口异常");
-
-  const kw = keyword ? keyword.trim().toLowerCase() : "";
-  const filtered = kw ? cats.filter(c => (c.category_name || "").toLowerCase().includes(kw)) : cats;
-
-  const limit = 20;
-  const offset = (page - 1) * limit;
-  const slice = filtered.slice(offset, offset + limit);
-
-  return slice.map(c => ({
-    id: `vod_cat_${c.category_id}`,
-    type: "link",
-    title: c.category_name,
-    link: `forward://xtream_full/getVodByCat?host=${params.host}&cat=${c.category_id}&page=1`
-  }));
-}
-
-/* ---------- 按 VOD 分类加载影片 ---------- */
-async function getVodByCat(params = {}) {
-  const { host, username, password, cat, keyword, page = 1 } = { ...params, ...resolveParams(params) };
-  const base = `${resolveParams(params).protocol}://${host}`;
-
-  const videos = await apiGet(base, { username, password, action: "get_vod_streams", category_id: cat });
-  if (!Array.isArray(videos)) throw new Error("VOD 接口异常");
-
-  const kw = keyword ? keyword.trim().toLowerCase() : "";
-  let filtered = kw ? videos.filter(v => (v.name || "").toLowerCase().includes(kw)) : videos;
-
-  const limit = 50;
-  const offset = (page - 1) * limit;
-  filtered = filtered.slice(offset, offset + limit);
-
-  const result = [];
-  for (const v of filtered) {
-    const item = {
-      id: `${base}/movie/${username}/${password}/${v.stream_id}.mp4`,
-      type: "url",
-      title: v.name,
-      backdropPath: v.stream_icon || `https://fakeimg.pl/200x120/1C1C1E/ffffff/?text=${encodeURIComponent(v.name)}`,
-      description: v.category_name || "",
-      videoUrl: `${base}/movie/${username}/${password}/${v.stream_id}.mp4`,
-      customHeaders: { "User-Agent": "AptvPlayer/1.4.11" },
-      childItems: []
-    };
-
-    // 多集系列
-    if (v.series && Array.isArray(v.series) && v.series.length > 1) {
-      const eps = v.series.map(ep => ({
-        id: `${base}/series/${username}/${password}/${ep.id}.mp4`,
-        type: "url",
-        title: ep.title || `EP ${ep.episode_num}`,
-        videoUrl: `${base}/series/${username}/${password}/${ep.id}.mp4`,
-        customHeaders: { "User-Agent": "AptvPlayer/1.4.11" }
-      }));
-      item.childItems = eps;
-    }
-    result.push(item);
-  }
-  return result;
-}
-
-/* ---------- 全网搜索（Live + VOD） ---------- */
-async function searchAll(params = {}) {
-  const { host, username, password, keyword } = { ...params, ...resolveParams(params) };
-  if (!host || !username || !password || !keyword) throw new Error("host / username / password / keyword 缺失");
-
-  const base = `${resolveParams(params).protocol}://${host}`;
+function filterKeyword(arr, keyword) {
+  if (!keyword) return arr;
   const kw = keyword.trim().toLowerCase();
+  return arr.filter(it => (it.name || "").toLowerCase().includes(kw));
+}
 
-  const [live, vod] = await Promise.all([
-    apiGet(base, { username, password, action: "get_live_streams" }),
-    apiGet(base, { username, password, action: "get_vod_streams" })
+/* ---------- Live ---------- */
+async function getLive(params = {}) {
+  const { url, keyword, page = 1 } = params;
+  const { host, username, password } = parseUrl(url);
+  const skip = (page - 1) * 50;
+
+  const [cats, streams] = await Promise.all([
+    apiRequest({ host, username, password, action: "get_live_categories" }),
+    apiRequest({ host, username, password, action: "get_live_streams", skip })
   ]);
 
-  const liveItems = (live || [])
-    .filter(s => (s.name || "").toLowerCase().includes(kw))
-    .map(s => ({
-      id: `${base}/live/${username}/${password}/${s.stream_id}.ts`,
-      type: "url",
-      title: `[LIVE] ${s.name}`,
-      backdropPath: s.stream_icon || `https://fakeimg.pl/200x120/1C1C1E/ffffff/?text=${encodeURIComponent(s.name)}`,
-      videoUrl: `${base}/live/${username}/${password}/${s.stream_id}.ts`,
-      customHeaders: { "User-Agent": "AptvPlayer/1.4.11" }
-    }));
+  const filtered = filterKeyword(streams, keyword);
 
-  const vodItems = (vod || [])
-    .filter(v => (v.name || "").toLowerCase().includes(kw))
-    .map(v => ({
-      id: `${base}/movie/${username}/${password}/${v.stream_id}.mp4`,
+  // 按分类分组
+  const catMap = new Map(cats.map(c => [c.category_id, c.category_name]));
+  const grouped = filtered.reduce((acc, ch) => {
+    const cat = catMap.get(ch.category_id) || "Other";
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push({
+      id: `${host}/live/${username}/${password}/${ch.stream_id}.ts`,
       type: "url",
-      title: `[VOD] ${v.name}`,
-      backdropPath: v.stream_icon || `https://fakeimg.pl/200x120/1C1C1E/ffffff/?text=${encodeURIComponent(v.name)}`,
-      videoUrl: `${base}/movie/${username}/${password}/${v.stream_id}.mp4`,
+      title: ch.name,
+      backdropPath: ch.stream_icon || `https://fakeimg.pl/200x120/1C1C1E/?text=${encodeURIComponent(ch.name)}`,
+      description: cat,
+      videoUrl: `${host}/live/${username}/${password}/${ch.stream_id}.ts`,
       customHeaders: { "User-Agent": "AptvPlayer/1.4.11" }
-    }));
+    });
+    return acc;
+  }, {});
 
-  return [...liveItems, ...vodItems];
+  // 每个分类变成一个 section
+  return Object.entries(grouped).map(([catName, items]) => ({
+    id: catName,
+    type: "link",
+    title: catName,
+    description: `${items.length} 频道`,
+    childItems: items
+  }));
 }
+
+/* ---------- VOD ---------- */
+async function getVod(params = {}) {
+  const { url, keyword, page = 1 } = params;
+  const { host, username, password } = parseUrl(url);
+  const skip = (page - 1) * 50;
+
+  const [cats, vods] = await Promise.all([
+    apiRequest({ host, username, password, action: "get_vod_categories" }),
+    apiRequest({ host, username, password, action: "get_vod_streams", skip })
+  ]);
+
+  const filtered = filterKeyword(vods, keyword);
+
+  const catMap = new Map(cats.map(c => [c.category_id, c.category_name]));
+
+  return filtered.map(vod => {
+    const seriesId = vod.series_id || vod.stream_id;
+    return {
+      id: `${host}/movie/${username}/${password}/${vod.stream_id}.mp4`,
+      type: "link",
+      title: vod.name,
+      posterPath: vod.stream_icon,
+      description: catMap.get(vod.category_id) || "VOD",
+      link: `${host}/movie/${username}/${password}/${vod.stream_id}.mp4`,
+      // 多集：一次性拉完，数量大时可再分页
+      childItems: vod.series_id
+        ? null // Series 有单独接口，需 loadDetail 再取
+        : []   // 单部电影
+    };
+  });
+}
+
+/* ---------- 可选：Series 详情再展开 ---------- */
+// 如需实现电视剧多集，可再写一个 loadDetail 函数
+// 这里先留空，后续若需要我再补充
