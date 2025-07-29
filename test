@@ -1,591 +1,249 @@
-// XStream Forward Widget - 支持IPTV和VOD内容的完整解决方案
+/* ---------- Widget Metadata ---------- */
 var WidgetMetadata = {
-    id: "xstream_iptv_widget",
-    title: "XStream IPTV",
-    description: "支持XStream API的IPTV和VOD播放器，支持直播、点播、剧集管理",
-    author: "IPTV Widget Developer",
-    site: "https://example.com",
-    version: "2.0.0",
-    requiredVersion: "0.0.1",
-    detailCacheDuration: 300, // 5分钟缓存
-    modules: [
-        {
-            title: "直播频道",
-            description: "浏览和观看直播电视频道",
-            requiresWebView: false,
-            functionName: "getLiveStreams",
-            sectionMode: true,
-            cacheDuration: 1800, // 30分钟缓存
-            params: [
-                {
-                    name: "serverUrl",
-                    title: "服务器链接",
-                    type: "input",
-                    description: "完整的XStream服务器链接 (支持自动解析用户名密码)",
-                    value: "http://lot77162.cdngold.me/get.php?username=Ahmedalrufaidy&password=h7cy07dp31&type=m3u_plus&output=ts"
-                },
-                {
-                    name: "category_id",
-                    title: "分类ID",
-                    type: "input",
-                    description: "可选：指定分类ID筛选频道",
-                    value: ""
-                },
-                {
-                    name: "page",
-                    title: "页码",
-                    type: "page",
-                    description: "分页加载",
-                    value: 1
-                }
-            ]
-        },
-        {
-            title: "直播分类",
-            description: "获取所有直播频道分类",
-            requiresWebView: false,
-            functionName: "getLiveCategories",
-            sectionMode: false,
-            cacheDuration: 3600, // 1小时缓存
-            params: [
-                {
-                    name: "serverUrl",
-                    title: "服务器链接",
-                    type: "input",
-                    description: "XStream服务器链接",
-                    value: "http://lot77162.cdngold.me/get.php?username=Ahmedalrufaidy&password=h7cy07dp31&type=m3u_plus&output=ts"
-                }
-            ]
-        },
-        {
-            title: "点播电影",
-            description: "浏览和观看点播电影",
-            requiresWebView: false,
-            functionName: "getVodStreams",
-            sectionMode: true,
-            cacheDuration: 1800,
-            params: [
-                {
-                    name: "serverUrl",
-                    title: "服务器链接",
-                    type: "input",
-                    description: "XStream服务器链接",
-                    value: "http://lot77162.cdngold.me/get.php?username=Ahmedalrufaidy&password=h7cy07dp31&type=m3u_plus&output=ts"
-                },
-                {
-                    name: "category_id",
-                    title: "分类ID",
-                    type: "input",
-                    description: "可选：点播分类ID",
-                    value: ""
-                },
-                {
-                    name: "page",
-                    title: "页码",
-                    type: "page",
-                    description: "分页加载",
-                    value: 1
-                }
-            ]
-        },
-        {
-            title: "电视剧集",
-            description: "浏览和观看电视剧",
-            requiresWebView: false,
-            functionName: "getSeriesStreams",
-            sectionMode: true,
-            cacheDuration: 1800,
-            params: [
-                {
-                    name: "serverUrl",
-                    title: "服务器链接",
-                    type: "input",
-                    description: "XStream服务器链接",
-                    value: "http://lot77162.cdngold.me/get.php?username=Ahmedalrufaidy&password=h7cy07dp31&type=m3u_plus&output=ts"
-                },
-                {
-                    name: "category_id",
-                    title: "分类ID",
-                    type: "input",
-                    description: "可选：剧集分类ID",
-                    value: ""
-                },
-                {
-                    name: "page",
-                    title: "页码",
-                    type: "page",
-                    description: "分页加载",
-                    value: 1
-                }
-            ]
-        }
-    ],
-    search: {
-        title: "搜索内容",
-        functionName: "searchContent",
-        params: [
-            {
-                name: "serverUrl",
-                title: "服务器链接",
-                type: "input",
-                description: "XStream服务器链接",
-                value: "http://lot77162.cdngold.me/get.php?username=Ahmedalrufaidy&password=h7cy07dp31&type=m3u_plus&output=ts"
-            },
-            {
-                name: "keyword",
-                title: "搜索关键词",
-                type: "input",
-                description: "输入要搜索的内容",
-                value: ""
-            },
-            {
-                name: "type",
-                title: "内容类型",
-                type: "enumeration",
-                description: "选择搜索类型",
-                value: "all",
-                enumOptions: [
-                    { title: "全部", value: "all" },
-                    { title: "直播", value: "live" },
-                    { title: "点播", value: "vod" },
-                    { title: "剧集", value: "series" }
-                ]
-            }
-        ]
+  id: "xtream_full",
+  title: "Xtream FULL (Live+VOD)",
+  description: "支持 http/https，自动解析 m3u 链接，分类浏览，关键词搜索，VOD 多集聚合",
+  author: "VEUS",
+  site: "VEUS",
+  version: "2.10.1",
+  requiredVersion: "0.0.1",
+  detailCacheDuration: 60,
+  modules: [
+    {
+      title: "Live 频道",
+      description: "按分类浏览直播频道",
+      requiresWebView: false,
+      functionName: "getLiveCategories",
+      cacheDuration: 300,
+      params: [
+        { name: "host", title: "m3u 完整链接 或 Host", type: "input", placeholder: "http://lot77162.cdngold.me" },
+        { name: "username", title: "Username", type: "input" },
+        { name: "password", title: "Password", type: "input" },
+        { name: "keyword", title: "关键词过滤", type: "input", placeholder: "CCTV" },
+        { name: "page", title: "页码", type: "page" }
+      ]
+    },
+    {
+      title: "VOD 点播",
+      description: "按分类浏览点播内容",
+      requiresWebView: false,
+      functionName: "getVodCategories",
+      cacheDuration: 300,
+      params: [
+        { name: "host", title: "m3u 完整链接 或 Host", type: "input" },
+        { name: "username", title: "Username", type: "input" },
+        { name: "password", title: "Password", type: "input" },
+        { name: "keyword", title: "关键词过滤", type: "input", placeholder: "movie" },
+        { name: "page", title: "页码", type: "page" }
+      ]
     }
+  ],
+  search: {
+    title: "全网搜索",
+    functionName: "searchAll",
+    params: [
+      { name: "host", title: "m3u 完整链接 或 Host", type: "input" },
+      { name: "username", title: "Username", type: "input" },
+      { name: "password", title: "Password", type: "input" },
+      { name: "keyword", title: "关键词", type: "input" }
+    ]
+  }
 };
 
-// 工具函数：从URL解析服务器配置
-function parseServerConfig(url) {
-    try {
-        const urlObj = new URL(url);
-        const params = new URLSearchParams(urlObj.search);
-        
-        // 支持从M3U链接解析参数
-        if (params.has('username') && params.has('password')) {
-            return {
-                baseUrl: `${urlObj.protocol}//${urlObj.host}`,
-                username: params.get('username'),
-                password: params.get('password'),
-                host: urlObj.host
-            };
-        }
-        
-        // 支持从player_api.php格式解析
-        if (url.includes('player_api.php')) {
-            const username = params.get('username');
-            const password = params.get('password');
-            if (username && password) {
-                return {
-                    baseUrl: url.split('player_api.php')[0],
-                    username: username,
-                    password: password,
-                    host: urlObj.host
-                };
-            }
-        }
-        
-        // 默认配置
-        console.log("无法从URL解析参数，请检查URL格式");
-        return null;
-    } catch (error) {
-        console.error("URL解析失败:", error);
-        return null;
-    }
+/* ---------- 工具函数 ---------- */
+function parseCredentials(rawHost) {
+  // 支持直接粘贴完整 m3u 链接或普通 host
+  let protocol = "http";
+  let host = rawHost.trim();
+  let username = "";
+  let password = "";
+
+  try {
+    const url = new URL(rawHost);
+    protocol = url.protocol.slice(0, -1); // "http" or "https"
+    host = url.hostname + (url.port ? ":" + url.port : "");
+    username = url.searchParams.get("username") || "";
+    password = url.searchParams.get("password") || "";
+  } catch (_) {
+    // 不是合法 URL，按普通 host 处理
+  }
+  return { protocol, host, username, password };
 }
 
-// 工具函数：构建API请求URL
-function buildApiUrl(config, action, additionalParams = {}) {
-    if (!config) return null;
-    
-    const baseUrl = config.baseUrl.endsWith('/') ? config.baseUrl : config.baseUrl + '/';
-    const params = new URLSearchParams({
-        username: config.username,
-        password: config.password,
-        action: action,
-        ...additionalParams
-    });
-    
-    return `${baseUrl}player_api.php?${params.toString()}`;
+async function apiGet(base, endpoint, params) {
+  const qs = new URLSearchParams(params).toString();
+  const url = `${base}/player_api.php?${qs}`;
+  const headers = { "User-Agent": "AptvPlayer/1.4.11" };
+  const res = await Widget.http.get(url, { headers });
+  if (!res?.data) throw new Error("API 无响应");
+  return res.data;
 }
 
-// 工具函数：安全的HTTP请求
-async function makeRequest(url, options = {}) {
-    try {
-        const response = await Widget.http.get(url, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Accept": "application/json, text/plain, */*",
-                "Cache-Control": "no-cache",
-                ...options.headers
-            },
-            timeout: 10000
-        });
-        
-        if (response.data) {
-            return typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-        }
-        return null;
-    } catch (error) {
-        console.error("请求失败:", error);
-        throw new Error(`网络请求失败: ${error.message}`);
-    }
-}
-
-// 工具函数：构建播放链接
-function buildStreamUrl(config, streamId, type = 'live', extension = 'ts') {
-    if (!config) return null;
-    
-    const baseUrl = config.baseUrl.endsWith('/') ? config.baseUrl : config.baseUrl + '/';
-    
-    switch (type) {
-        case 'live':
-            return `${baseUrl}live/${config.username}/${config.password}/${streamId}.${extension}`;
-        case 'movie':
-            return `${baseUrl}movie/${config.username}/${config.password}/${streamId}.${extension}`;
-        case 'series':
-            return `${baseUrl}series/${config.username}/${config.password}/${streamId}.${extension}`;
-        default:
-            return `${baseUrl}${type}/${config.username}/${config.password}/${streamId}.${extension}`;
-    }
-}
-
-// 获取直播频道分类
+/* ---------- Live 分类 ---------- */
 async function getLiveCategories(params = {}) {
-    try {
-        const config = parseServerConfig(params.serverUrl || '');
-        if (!config) {
-            throw new Error("无效的服务器配置");
-        }
+  const { host: rawHost, keyword, page = 1 } = params;
+  if (!rawHost) throw new Error("缺少 host");
 
-        const apiUrl = buildApiUrl(config, 'get_live_categories');
-        const data = await makeRequest(apiUrl);
-        
-        if (!data || !Array.isArray(data)) {
-            return [];
-        }
+  const { protocol, host, username, password } = parseCredentials(rawHost || "");
+  if (!host || !username || !password) throw new Error("host / username / password 缺失");
 
-        return data.map(category => ({
-            id: `category_${category.category_id}`,
-            type: "url",
-            title: category.category_name || '未知分类',
-            description: `分类ID: ${category.category_id}`,
-            link: `category:${category.category_id}`,
-            coverUrl: null,
-            rating: null,
-            mediaType: "category"
-        }));
+  const base = `${protocol}://${host}`;
+  const cats = await apiGet(base, { username, password, action: "get_live_categories" });
+  if (!Array.isArray(cats)) throw new Error("分类接口异常");
 
-    } catch (error) {
-        console.error("获取直播分类失败:", error);
-        throw error;
-    }
+  const kw = keyword ? keyword.trim().toLowerCase() : "";
+  const filtered = kw
+    ? cats.filter(c => (c.category_name || "").toLowerCase().includes(kw))
+    : cats;
+
+  // 分页：每页 20 个分类
+  const limit = 20;
+  const offset = (page - 1) * limit;
+  const slice = filtered.slice(offset, offset + limit);
+
+  return slice.map(c => ({
+    id: `live_cat_${c.category_id}`,
+    type: "link",
+    title: c.category_name,
+    link: `forward://xtream_full/getLiveByCat?host=${rawHost}&cat=${c.category_id}&page=1`
+  }));
 }
 
-// 获取直播频道
-async function getLiveStreams(params = {}) {
-    try {
-        const config = parseServerConfig(params.serverUrl || '');
-        if (!config) {
-            throw new Error("无效的服务器配置");
-        }
+/* ---------- 按 Live 分类加载频道 ---------- */
+async function getLiveByCat(params = {}) {
+  const { host: rawHost, cat, keyword, page = 1 } = params;
+  const { protocol, host, username, password } = parseCredentials(rawHost || "");
+  const base = `${protocol}://${host}`;
 
-        const page = parseInt(params.page) || 1;
-        const pageSize = 50; // 每页50个项目，避免数据过多
-        
-        const additionalParams = {};
-        if (params.category_id) {
-            additionalParams.category_id = params.category_id;
-        }
+  const streams = await apiGet(base, { username, password, action: "get_live_streams", category_id: cat });
+  if (!Array.isArray(streams)) throw new Error("频道接口异常");
 
-        const apiUrl = buildApiUrl(config, 'get_live_streams', additionalParams);
-        const data = await makeRequest(apiUrl);
-        
-        if (!data || !Array.isArray(data)) {
-            return [];
-        }
+  const kw = keyword ? keyword.trim().toLowerCase() : "";
+  let filtered = kw ? streams.filter(s => (s.name || "").toLowerCase().includes(kw)) : streams;
 
-        // 分页处理
-        const startIndex = (page - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        const pageData = data.slice(startIndex, endIndex);
+  const limit = 50;
+  const offset = (page - 1) * limit;
+  filtered = filtered.slice(offset, offset + limit);
 
-        return pageData.map(stream => ({
-            id: stream.stream_id?.toString() || `live_${Date.now()}_${Math.random()}`,
-            type: "url",
-            title: stream.name || '未知频道',
-            description: stream.category_name ? `分类: ${stream.category_name}` : '',
-            videoUrl: buildStreamUrl(config, stream.stream_id, 'live', stream.stream_type || 'ts'),
-            coverUrl: stream.stream_icon || null,
-            link: `live:${stream.stream_id}`,
-            mediaType: "tv",
-            rating: null,
-            genreTitle: stream.category_name || null,
-            previewUrl: stream.stream_icon || null
-        }));
-
-    } catch (error) {
-        console.error("获取直播频道失败:", error);
-        throw error;
-    }
+  return filtered.map(s => ({
+    id: `${base}/live/${username}/${password}/${s.stream_id}.ts`,
+    type: "url",
+    title: s.name,
+    backdropPath: s.stream_icon || `https://fakeimg.pl/200x120/1C1C1E/ffffff/?text=${encodeURIComponent(s.name)}`,
+    description: s.category_name || "",
+    videoUrl: `${base}/live/${username}/${password}/${s.stream_id}.ts`,
+    customHeaders: { "User-Agent": "AptvPlayer/1.4.11" }
+  }));
 }
 
-// 获取点播电影
-async function getVodStreams(params = {}) {
-    try {
-        const config = parseServerConfig(params.serverUrl || '');
-        if (!config) {
-            throw new Error("无效的服务器配置");
-        }
+/* ---------- VOD 分类 ---------- */
+async function getVodCategories(params = {}) {
+  const { host: rawHost, keyword, page = 1 } = params;
+  if (!rawHost) throw new Error("缺少 host");
 
-        const page = parseInt(params.page) || 1;
-        const pageSize = 30;
-        
-        const additionalParams = {};
-        if (params.category_id) {
-            additionalParams.category_id = params.category_id;
-        }
+  const { protocol, host, username, password } = parseCredentials(rawHost || "");
+  const base = `${protocol}://${host}`;
+  const cats = await apiGet(base, { username, password, action: "get_vod_categories" });
+  if (!Array.isArray(cats)) throw new Error("VOD 分类接口异常");
 
-        const apiUrl = buildApiUrl(config, 'get_vod_streams', additionalParams);
-        const data = await makeRequest(apiUrl);
-        
-        if (!data || !Array.isArray(data)) {
-            return [];
-        }
+  const kw = keyword ? keyword.trim().toLowerCase() : "";
+  const filtered = kw
+    ? cats.filter(c => (c.category_name || "").toLowerCase().includes(kw))
+    : cats;
 
-        const startIndex = (page - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        const pageData = data.slice(startIndex, endIndex);
+  const limit = 20;
+  const offset = (page - 1) * limit;
+  const slice = filtered.slice(offset, offset + limit);
 
-        return pageData.map(vod => ({
-            id: vod.stream_id?.toString() || `vod_${Date.now()}_${Math.random()}`,
-            type: "url",
-            title: vod.name || '未知电影',
-            description: vod.plot || vod.description || '',
-            videoUrl: buildStreamUrl(config, vod.stream_id, 'movie', vod.container_extension || 'mp4'),
-            posterPath: vod.stream_icon || null,
-            backdropPath: vod.stream_icon || null,
-            coverUrl: vod.stream_icon || null,
-            link: `vod:${vod.stream_id}`,
-            mediaType: "movie",
-            rating: vod.rating ? parseFloat(vod.rating) : null,
-            genreTitle: vod.category_name || null,
-            releaseDate: vod.releasedate || null,
-            duration: vod.duration ? parseInt(vod.duration) : null,
-            durationText: vod.duration ? formatDuration(vod.duration) : null
-        }));
-
-    } catch (error) {
-        console.error("获取点播内容失败:", error);
-        throw error;
-    }
+  return slice.map(c => ({
+    id: `vod_cat_${c.category_id}`,
+    type: "link",
+    title: c.category_name,
+    link: `forward://xtream_full/getVodByCat?host=${rawHost}&cat=${c.category_id}&page=1`
+  }));
 }
 
-// 获取电视剧
-async function getSeriesStreams(params = {}) {
-    try {
-        const config = parseServerConfig(params.serverUrl || '');
-        if (!config) {
-            throw new Error("无效的服务器配置");
-        }
+/* ---------- 按 VOD 分类加载影片 ---------- */
+async function getVodByCat(params = {}) {
+  const { host: rawHost, cat, keyword, page = 1 } = params;
+  const { protocol, host, username, password } = parseCredentials(rawHost || "");
+  const base = `${protocol}://${host}`;
 
-        const page = parseInt(params.page) || 1;
-        const pageSize = 20;
-        
-        const additionalParams = {};
-        if (params.category_id) {
-            additionalParams.category_id = params.category_id;
-        }
+  const videos = await apiGet(base, { username, password, action: "get_vod_streams", category_id: cat });
+  if (!Array.isArray(videos)) throw new Error("VOD 接口异常");
 
-        const apiUrl = buildApiUrl(config, 'get_series', additionalParams);
-        const data = await makeRequest(apiUrl);
-        
-        if (!data || !Array.isArray(data)) {
-            return [];
-        }
+  const kw = keyword ? keyword.trim().toLowerCase() : "";
+  let filtered = kw ? videos.filter(v => (v.name || "").toLowerCase().includes(kw)) : videos;
 
-        const startIndex = (page - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        const pageData = data.slice(startIndex, endIndex);
+  const limit = 50;
+  const offset = (page - 1) * limit;
+  filtered = filtered.slice(offset, offset + limit);
 
-        // 并行获取剧集详情和分集信息
-        const seriesWithEpisodes = await Promise.all(
-            pageData.map(async (series) => {
-                try {
-                    const seriesInfo = await getSeriesInfo(config, series.series_id);
-                    const episodes = seriesInfo.episodes || {};
-                    
-                    // 获取第一集作为主项目
-                    const firstSeason = Object.keys(episodes)[0];
-                    const firstEpisode = firstSeason ? episodes[firstSeason][0] : null;
-                    
-                    // 构建子项目（其他集数）
-                    const childItems = [];
-                    Object.keys(episodes).forEach(seasonNum => {
-                        episodes[seasonNum].forEach((episode, index) => {
-                            if (index > 0 || seasonNum !== firstSeason) { // 排除第一集
-                                childItems.push({
-                                    id: `episode_${episode.id}`,
-                                    type: "url",
-                                    title: `S${seasonNum}E${episode.episode_num || index + 1}: ${episode.title || series.name}`,
-                                    description: episode.plot || `第${seasonNum}季第${episode.episode_num || index + 1}集`,
-                                    videoUrl: buildStreamUrl(config, episode.id, 'series', episode.container_extension || 'mp4'),
-                                    coverUrl: episode.info?.movie_image || series.cover || null,
-                                    mediaType: "tv",
-                                    episode: episode.episode_num || index + 1,
-                                    rating: episode.info?.rating ? parseFloat(episode.info.rating) : null,
-                                    duration: episode.info?.duration ? parseInt(episode.info.duration) : null
-                                });
-                            }
-                        });
-                    });
+  // 对于系列影片，拉取 episode list 并作为 childItems
+  const result = [];
+  for (const v of filtered) {
+    const item = {
+      id: `${base}/movie/${username}/${password}/${v.stream_id}.mp4`,
+      type: "url",
+      title: v.name,
+      backdropPath: v.stream_icon || `https://fakeimg.pl/200x120/1C1C1E/ffffff/?text=${encodeURIComponent(v.name)}`,
+      description: v.category_name || "",
+      videoUrl: `${base}/movie/${username}/${password}/${v.stream_id}.mp4`,
+      customHeaders: { "User-Agent": "AptvPlayer/1.4.11" },
+      childItems: []
+    };
 
-                    return {
-                        id: series.series_id?.toString() || `series_${Date.now()}_${Math.random()}`,
-                        type: "url",
-                        title: series.name || '未知剧集',
-                        description: seriesInfo.info?.plot || series.plot || '',
-                        videoUrl: firstEpisode ? buildStreamUrl(config, firstEpisode.id, 'series', firstEpisode.container_extension || 'mp4') : null,
-                        posterPath: series.cover || null,
-                        backdropPath: series.cover || null,
-                        coverUrl: series.cover || null,
-                        link: `series:${series.series_id}`,
-                        mediaType: "tv",
-                        rating: seriesInfo.info?.rating ? parseFloat(seriesInfo.info.rating) : null,
-                        genreTitle: series.category_name || null,
-                        releaseDate: seriesInfo.info?.releasedate || null,
-                        episode: 1,
-                        childItems: childItems.slice(0, 20) // 限制子项目数量，避免数据过多
-                    };
-                } catch (episodeError) {
-                    console.error(`获取剧集${series.series_id}详情失败:`, episodeError);
-                    return {
-                        id: series.series_id?.toString() || `series_${Date.now()}_${Math.random()}`,
-                        type: "url",
-                        title: series.name || '未知剧集',
-                        description: series.plot || '暂无描述',
-                        coverUrl: series.cover || null,
-                        link: `series:${series.series_id}`,
-                        mediaType: "tv",
-                        genreTitle: series.category_name || null
-                    };
-                }
-            })
-        );
-
-        return seriesWithEpisodes.filter(item => item !== null);
-
-    } catch (error) {
-        console.error("获取剧集失败:", error);
-        throw error;
+    // 只有 series 才拉 episode
+    if (v.series && v.series.length > 1) {
+      const eps = v.series.map(ep => ({
+        id: `${base}/series/${username}/${password}/${ep.id}.mp4`,
+        type: "url",
+        title: ep.title || `EP ${ep.episode_num}`,
+        videoUrl: `${base}/series/${username}/${password}/${ep.id}.mp4`,
+        customHeaders: { "User-Agent": "AptvPlayer/1.4.11" }
+      }));
+      item.childItems = eps;
     }
+    result.push(item);
+  }
+  return result;
 }
 
-// 获取剧集详细信息
-async function getSeriesInfo(config, seriesId) {
-    try {
-        const apiUrl = buildApiUrl(config, 'get_series_info', { series_id: seriesId });
-        const data = await makeRequest(apiUrl);
-        return data || {};
-    } catch (error) {
-        console.error(`获取剧集${seriesId}信息失败:`, error);
-        return {};
-    }
+/* ---------- 全网搜索（Live + VOD 合并） ---------- */
+async function searchAll(params = {}) {
+  const { host: rawHost, keyword } = params;
+  if (!keyword || !rawHost) throw new Error("host 与 keyword 均不能为空");
+
+  const { protocol, host, username, password } = parseCredentials(rawHost || "");
+  const base = `${protocol}://${host}`;
+  const kw = keyword.trim().toLowerCase();
+
+  const [live, vod] = await Promise.all([
+    apiGet(base, { username, password, action: "get_live_streams" }),
+    apiGet(base, { username, password, action: "get_vod_streams" })
+  ]);
+
+  const liveItems = (live || [])
+    .filter(s => (s.name || "").toLowerCase().includes(kw))
+    .map(s => ({
+      id: `${base}/live/${username}/${password}/${s.stream_id}.ts`,
+      type: "url",
+      title: `[LIVE] ${s.name}`,
+      backdropPath: s.stream_icon || `https://fakeimg.pl/200x120/1C1C1E/ffffff/?text=${encodeURIComponent(s.name)}`,
+      videoUrl: `${base}/live/${username}/${password}/${s.stream_id}.ts`,
+      customHeaders: { "User-Agent": "AptvPlayer/1.4.11" }
+    }));
+
+  const vodItems = (vod || [])
+    .filter(v => (v.name || "").toLowerCase().includes(kw))
+    .map(v => ({
+      id: `${base}/movie/${username}/${password}/${v.stream_id}.mp4`,
+      type: "url",
+      title: `[VOD] ${v.name}`,
+      backdropPath: v.stream_icon || `https://fakeimg.pl/200x120/1C1C1E/ffffff/?text=${encodeURIComponent(v.name)}`,
+      videoUrl: `${base}/movie/${username}/${password}/${v.stream_id}.mp4`,
+      customHeaders: { "User-Agent": "AptvPlayer/1.4.11" }
+    }));
+
+  return [...liveItems, ...vodItems];
 }
-
-// 搜索功能
-async function searchContent(params = {}) {
-    try {
-        const config = parseServerConfig(params.serverUrl || '');
-        if (!config) {
-            throw new Error("无效的服务器配置");
-        }
-
-        const keyword = params.keyword?.toLowerCase() || '';
-        const searchType = params.type || 'all';
-        
-        if (!keyword) {
-            return [];
-        }
-
-        const results = [];
-        
-        // 根据搜索类型获取对应内容
-        if (searchType === 'all' || searchType === 'live') {
-            try {
-                const liveStreams = await getLiveStreams({ serverUrl: params.serverUrl });
-                const filteredLive = liveStreams.filter(item => 
-                    item.title.toLowerCase().includes(keyword) ||
-                    (item.description && item.description.toLowerCase().includes(keyword))
-                );
-                results.push(...filteredLive.slice(0, 20));
-            } catch (error) {
-                console.error("搜索直播内容失败:", error);
-            }
-        }
-        
-        if (searchType === 'all' || searchType === 'vod') {
-            try {
-                const vodStreams = await getVodStreams({ serverUrl: params.serverUrl });
-                const filteredVod = vodStreams.filter(item => 
-                    item.title.toLowerCase().includes(keyword) ||
-                    (item.description && item.description.toLowerCase().includes(keyword))
-                );
-                results.push(...filteredVod.slice(0, 20));
-            } catch (error) {
-                console.error("搜索点播内容失败:", error);
-            }
-        }
-        
-        if (searchType === 'all' || searchType === 'series') {
-            try {
-                const seriesStreams = await getSeriesStreams({ serverUrl: params.serverUrl });
-                const filteredSeries = seriesStreams.filter(item => 
-                    item.title.toLowerCase().includes(keyword) ||
-                    (item.description && item.description.toLowerCase().includes(keyword))
-                );
-                results.push(...filteredSeries.slice(0, 10));
-            } catch (error) {
-                console.error("搜索剧集内容失败:", error);
-            }
-        }
-
-        return results.slice(0, 50); // 限制总搜索结果数量
-
-    } catch (error) {
-        console.error("搜索失败:", error);
-        throw error;
-    }
-}
-
-// 工具函数：格式化时长
-function formatDuration(seconds) {
-    if (!seconds) return null;
-    
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    
-    if (hours > 0) {
-        return `${hours}:${minutes.toString().padStart(2, '0')}:00`;
-    } else {
-        return `${minutes}:00`;
-    }
-}
-
-// 详情加载函数
-async function loadDetail(link) {
-    try {
-        // 解析链接获取详细信息
-        const [type, id] = link.split(':');
-        
-        // 返回包含videoUrl的对象，这里可以根据需要扩展
-        return {
-            videoUrl: link // 这里应该返回实际的播放链接
-        };
-    } catch (error) {
-        console.error("加载详情失败:", error);
-        throw error;
-    }
-}
-
-console.log("XStream IPTV Widget 加载完成");
