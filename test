@@ -1,175 +1,137 @@
-/* =========================
-   Xtream Live v3.1 – 完整合规版
-   ========================= */
-var WidgetMetadata = {
-  id: "xtream_live_v31",
-  title: "Xtream Live v3.1",
-  description: "支持 HTTPS、URL 传参、分类分页、关键词搜索、相关剧集",
-  author: "VEUS",
-  site: "https://github.com/InchStudio/ForwardWidgets",
-  version: "3.1.0",
-  requiredVersion: "0.0.1",
-  detailCacheDuration: 60,
+/*****************************************************************
+ *  Xtream Live v3.3 – 手动填参版
+ *****************************************************************/
 
-  modules: [
-    /* 0️⃣ 频道分类（作为入口） */
-    {
-      title: "📂 频道分类",
-      description: "先选分类，再加载频道",
-      requiresWebView: false,
-      functionName: "getCategories",
-      cacheDuration: 3600,
-      params: [
-        { name: "url",      title: "服务器地址", type: "input", placeholder: "https://lot77162.cdngold.me" },
-        { name: "username", title: "用户名",     type: "input" },
-        { name: "password", title: "密码",       type: "input" }
-      ]
-    },
+WidgetMetadata = {
+    id: "xtream_live_v33",
+    title: "Xtream Live v3.3",
+    description: "HTTPS 自适应、分类分页、关键词搜索、剧集推荐（手动填参）",
+    author: "VEUS",
+    site: "https://github.com/InchStudio/ForwardWidgets",
+    version: "3.3.0",
+    requiredVersion: "0.0.1",
+    detailCacheDuration: 60,
 
-    /* 1️⃣ 频道列表（分页 + 关键词） */
-    {
-      title: "📺 频道列表",
-      description: "支持分类、关键词、分页",
-      requiresWebView: false,
+    modules: [
+      {
+        title: "📂 频道分类",
+        description: "先选分类，再加载频道",
+        requiresWebView: false,
+        functionName: "getCategories",
+        cacheDuration: 3600,
+        params: [
+          { name: "host",     title: "服务器地址", type: "input", placeholder: "https://lot77162.cdngold.me" },
+          { name: "username", title: "用户名",     type: "input" },
+          { name: "password", title: "密码",       type: "input" }
+        ]
+      },
+      {
+        title: "📺 频道列表",
+        description: "分类 + 关键词 + 分页",
+        requiresWebView: false,
+        functionName: "getChannels",
+        sectionMode: true,
+        cacheDuration: 300,
+        params: [
+          { name: "host",       title: "服务器地址", type: "input" },
+          { name: "username",   title: "用户名",     type: "input" },
+          { name: "password",   title: "密码",       type: "input" },
+          { name: "categoryId", title: "分类 ID",    type: "enumeration", enumOptions: [] },
+          { name: "keyword",    title: "关键词",     type: "input", placeholder: "CCTV / HBO ..." },
+          { name: "page",       title: "页码",       type: "page", value: 1 },
+          { name: "size",       title: "每页条数",   type: "constant", value: 50 }
+        ]
+      }
+    ],
+
+    search: {
+      title: "🔍 全局搜索",
       functionName: "getChannels",
-      sectionMode: true,                       // 由框架生成“加载更多”
-      cacheDuration: 300,
       params: [
-        { name: "url",        title: "服务器地址", type: "input" },
-        { name: "username",   title: "用户名",     type: "input" },
-        { name: "password",   title: "密码",       type: "input" },
-        { name: "categoryId", title: "分类 ID",    type: "enumeration", enumOptions: [] }, // 运行期填充
-        { name: "keyword",    title: "关键词",     type: "input", placeholder: "CCTV / HBO ..." },
-        { name: "page",       title: "页码",       type: "page", value: 1 },
-        { name: "size",       title: "每页条数",   type: "constant", value: 50 }
+        { name: "host",     type: "input" },
+        { name: "username", type: "input" },
+        { name: "password", type: "input" },
+        { name: "keyword",  type: "input" }
       ]
     }
-  ],
+  };
 
-  /* 🔍 全局搜索（跨分类） */
-  search: {
-    title: "🔍 全局搜索",
-    functionName: "getChannels",
-    params: [
-      { name: "url",      type: "input" },
-      { name: "username", type: "input" },
-      { name: "password", type: "input" },
-      { name: "keyword",  type: "input" }
-    ]
-  }
-};
-
-/* =========================
-   工具函数
-   ========================= */
-/* 统一解析 host；自动补 http(s) */
-function parseHost(raw) {
-  if (!raw) throw new Error("服务器地址不能为空");
-  const m = raw.match(/^(https?:\/\/)?([^/]+)/i);
-  const protocol = m && m[1] ? "" : "http://"; // 默认 http，可手动写 https://
-  return `${protocol}${m ? m[2] : raw}`;
-}
-
-/* 从当前 URL query 里自动填充参数 */
-function fillFromQuery(params) {
-  try {
-    const u = new URL(location.href);
-    params.url      = u.searchParams.get("url")      || params.url      || "";
-    params.username = u.searchParams.get("username") || params.username || "";
-    params.password = u.searchParams.get("password") || params.password || "";
-  } catch (_) {}
-}
-
-/* =========================
-   0️⃣ 获取分类
-   ========================= */
-async function getCategories(params = {}) {
-  fillFromQuery(params);
-  const { url: rawUrl, username, password } = params;
-  if (!rawUrl || !username || !password) {
-    throw new Error("⚠️ 请填写完整服务器地址 / 用户名 / 密码");
-  }
-  const host = parseHost(rawUrl);
-  const api  = `${host}/player_api.php?username=${username}&password=${password}&action=get_live_categories`;
-  const res  = await Widget.http.get(api, {
-    headers: { "User-Agent": "AptvPlayer/1.4.11" }
-  }).catch(e => { throw new Error("网络请求失败：" + e.message); });
-
-  if (!Array.isArray(res.data)) throw new Error("❌ 分类接口返回异常");
-
-  return res.data.map(c => ({
-    id: String(c.category_id),
-    type: "link",
-    title: c.category_name || "未分类",
-    /* 点击后进入频道列表，带上分类 ID */
-    link: "forward://getChannels?" +
-          `url=${encodeURIComponent(rawUrl)}&username=${encodeURIComponent(username)}` +
-          `&password=${encodeURIComponent(password)}&categoryId=${c.category_id}`
-  }));
-}
-
-/* =========================
-   1️⃣ 获取频道（分页、关键词、分类过滤）
-   ========================= */
-async function getChannels(params = {}) {
-  fillFromQuery(params);
-  const { url: rawUrl, username, password, categoryId, keyword, page = 1, size = 50 } = params;
-  if (!rawUrl || !username || !password) {
-    throw new Error("⚠️ 请填写完整服务器地址 / 用户名 / 密码");
-  }
-  const host = parseHost(rawUrl);
-  const api  = `${host}/player_api.php?username=${username}&password=${password}&action=get_live_streams`;
-  const res  = await Widget.http.get(api, {
-    headers: { "User-Agent": "AptvPlayer/1.4.11" }
-  }).catch(e => { throw new Error("网络请求失败：" + e.message); });
-
-  if (!Array.isArray(res.data)) throw new Error("❌ 频道接口返回异常");
-
-  /* 过滤：分类 + 关键词 */
-  let list = res.data;
-  if (categoryId && categoryId !== "0") {
-    list = list.filter(ch => String(ch.category_id) === String(categoryId));
-  }
-  if (keyword) {
-    const kw = keyword.toLowerCase();
-    list = list.filter(ch => (ch.name || "").toLowerCase().includes(kw));
+  /* ---------- 工具函数 ---------- */
+  function parseHost(raw) {
+    if (!raw) throw new Error("请填写服务器地址");
+    return /^https?:\/\//.test(raw) ? raw : "http://" + raw;
   }
 
-  /* 分页 */
-  const total  = list.length;
-  const offset = (page - 1) * size;
-  list = list.slice(offset, offset + size);
+  /* ---------- 分类列表 ---------- */
+  async function getCategories(params = {}) {
+    const { host: rawHost, username, password } = params;
+    if (!rawHost || !username || !password) throw new Error("缺少服务器地址 / 用户名 / 密码");
 
-  /* 空结果提示 */
-  if (!list.length && page === 1) {
-    return [{ id: "empty", type: "url", title: "⚠️ 无匹配频道", description: "换个关键词试试？" }];
+    const host = parseHost(rawHost);
+    const api  = `${host}/player_api.php?username=${username}&password=${password}&action=get_live_categories`;
+    const res  = await Widget.http.get(api, { headers: { "User-Agent": "AptvPlayer/1.4.11" } });
+    if (!Array.isArray(res.data)) throw new Error("分类接口返回异常");
+
+    return res.data.map(c => ({
+      id: String(c.category_id),
+      type: "link",
+      title: c.category_name || "未分类",
+      link: `${host}/player_api.php?username=${username}&password=${password}&action=get_live_streams&category_id=${c.category_id}`
+    }));
   }
 
-  /* 构造返回数据 */
-  const items = list.map(ch => ({
-    id: `${host}/live/${username}/${password}/${ch.stream_id}.ts`,
-    type: "url",
-    title: ch.name,
-    posterPath: ch.stream_icon || `https://fakeimg.pl/200x300/1C1C1E/ffffff?font_size=22&text=${encodeURIComponent(ch.name)}`,
-    backdropPath: ch.stream_icon,
-    mediaType: "tv",
-    genreTitle: ch.category_name || "其他",
-    description: ch.category_name || "",
-    videoUrl: `${host}/live/${username}/${password}/${ch.stream_id}.ts`,
-    customHeaders: { "User-Agent": "AptvPlayer/1.4.11" },
+  /* ---------- 频道列表 ---------- */
+  async function getChannels(params = {}) {
+    const { host: rawHost, username, password, categoryId, keyword, page = 1, size = 50 } = params;
+    if (!rawHost || !username || !password) throw new Error("缺少服务器地址 / 用户名 / 密码");
 
-    /* 若同一 JSON 有剧集信息，可展开 */
-    childItems: ch.series && Array.isArray(ch.series)
-      ? ch.series.map(ep => ({
-          id: `${host}/series/${username}/${password}/${ep.id}.mp4`,
-          type: "url",
-          title: `📺 ${ep.title || ep.name}`,
-          videoUrl: `${host}/series/${username}/${password}/${ep.id}.mp4`,
-          customHeaders: { "User-Agent": "AptvPlayer/1.4.11" }
-        }))
-      : undefined
-  }));
+    const host = parseHost(rawHost);
+    let api    = `${host}/player_api.php?username=${username}&password=${password}&action=get_live_streams`;
+    if (categoryId && categoryId !== "0") api += `&category_id=${categoryId}`;
 
-  /* sectionMode 会自动追加“加载更多”，无需手动写 link */
-  return items;
-}
+    const res = await Widget.http.get(api, { headers: { "User-Agent": "AptvPlayer/1.4.11" } });
+    if (!Array.isArray(res.data)) throw new Error("频道接口返回异常");
+
+    let list = res.data;
+    if (keyword) {
+      const kw = keyword.toLowerCase();
+      list = list.filter(ch => (ch.name || "").toLowerCase().includes(kw));
+    }
+
+    const total  = list.length;
+    const offset = (page - 1) * size;
+    list = list.slice(offset, offset + size);
+
+    if (!list.length && page === 1) {
+      return [{ id: "empty", type: "url", title: "⚠️ 无匹配频道", description: "" }];
+    }
+
+    return list.map(ch => ({
+      id: `${host}/live/${username}/${password}/${ch.stream_id}.ts`,
+      type: "url",
+      title: ch.name,
+      posterPath: ch.stream_icon || `https://fakeimg.pl/200x300/1C1C1E/ffffff?text=${encodeURIComponent(ch.name)}`,
+      backdropPath: ch.stream_icon,
+      mediaType: "tv",
+      genreTitle: ch.category_name || "",
+      description: ch.category_name || "",
+      videoUrl: `${host}/live/${username}/${password}/${ch.stream_id}.ts`,
+      customHeaders: { "User-Agent": "AptvPlayer/1.4.11" },
+
+      childItems: ch.series && Array.isArray(ch.series)
+        ? ch.series.map(ep => ({
+            id: `${host}/series/${username}/${password}/${ep.id}.mp4`,
+            type: "url",
+            title: ep.title || ep.name,
+            videoUrl: `${host}/series/${username}/${password}/${ep.id}.mp4`,
+            customHeaders: { "User-Agent": "AptvPlayer/1.4.11" }
+          }))
+        : undefined
+    }));
+  }
+
+  /* ---------- 导出 ---------- */
+  globalThis.WidgetMetadata = WidgetMetadata;
+  globalThis.getCategories  = getCategories;
+  globalThis.getChannels    = getChannels;
+})();
