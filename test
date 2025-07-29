@@ -5,7 +5,7 @@ var WidgetMetadata = {
   description: "Enhanced Xtream Codes API client with auto URL parsing, categories, search and series support",
   author: "Enhanced by Assistant",
   site: "https://github.com/InchStudio/ForwardWidgets",
-  version: "3.1.0",
+  version: "3.1.1",
   requiredVersion: "0.0.1",
   detailCacheDuration: 60,
   modules: [
@@ -131,14 +131,48 @@ var WidgetMetadata = {
 /* ---------- Utility Functions ---------- */
 function parseXtreamUrl(url) {
   try {
-    const urlObj = new URL(url);
-    const params = urlObj.searchParams;
-    const host = urlObj.host;
-    const username = params.get('username');
-    const password = params.get('password');
+    // Manual URL parsing for better compatibility
+    if (!url || typeof url !== 'string') {
+      throw new Error("Invalid URL");
+    }
     
-    if (!host || !username || !password) {
-      throw new Error("Invalid Xtream URL format");
+    // Extract protocol and remove it
+    const protocolMatch = url.match(/^https?:\/\//);
+    if (!protocolMatch) {
+      throw new Error("URL must start with http:// or https://");
+    }
+    
+    const withoutProtocol = url.replace(/^https?:\/\//, '');
+    
+    // Split by '/' to separate host from path
+    const parts = withoutProtocol.split('/');
+    const host = parts[0];
+    
+    if (!host) {
+      throw new Error("Invalid host");
+    }
+    
+    // Extract query parameters manually
+    const queryStart = url.indexOf('?');
+    if (queryStart === -1) {
+      throw new Error("No query parameters found");
+    }
+    
+    const queryString = url.substring(queryStart + 1);
+    const params = {};
+    
+    queryString.split('&').forEach(param => {
+      const [key, value] = param.split('=');
+      if (key && value) {
+        params[decodeURIComponent(key)] = decodeURIComponent(value);
+      }
+    });
+    
+    const username = params.username;
+    const password = params.password;
+    
+    if (!username || !password) {
+      throw new Error("Username and password are required in URL");
     }
     
     return { host, username, password };
@@ -149,13 +183,22 @@ function parseXtreamUrl(url) {
 
 function buildApiUrl(host, username, password, action, extraParams = {}) {
   const baseUrl = `http://${host}/player_api.php`;
-  const params = new URLSearchParams({
-    username,
-    password,
-    action,
-    ...extraParams
+  
+  // Manual parameter building for better compatibility
+  const params = [`username=${encodeURIComponent(username)}`, `password=${encodeURIComponent(password)}`];
+  
+  if (action) {
+    params.push(`action=${encodeURIComponent(action)}`);
+  }
+  
+  // Add extra parameters
+  Object.keys(extraParams).forEach(key => {
+    if (extraParams[key] !== undefined && extraParams[key] !== null && extraParams[key] !== '') {
+      params.push(`${encodeURIComponent(key)}=${encodeURIComponent(extraParams[key])}`);
+    }
   });
-  return `${baseUrl}?${params.toString()}`;
+  
+  return `${baseUrl}?${params.join('&')}`;
 }
 
 function createFallbackImage(title, bgColor = "1C1C1E") {
@@ -192,32 +235,28 @@ async function parseAndConnect(params = {}) {
         type: "url",
         title: "✅ Connection Successful",
         description: `Server: ${host}\nUser: ${username}`,
-        backdropPath: createFallbackImage("Connected", bg_color),
-        link: `forward://widget?host=${host}&username=${username}&password=${password}`
+        backdropPath: createFallbackImage("Connected", bg_color)
       },
       {
         id: "live_categories",
-        type: "url",
+        type: "url", 
         title: "📺 Live TV Categories",
         description: "Browse live TV channels by category",
-        backdropPath: createFallbackImage("Live TV", bg_color),
-        link: `forward://getLiveCategories?host=${host}&username=${username}&password=${password}&bg_color=${bg_color || ''}`
+        backdropPath: createFallbackImage("Live TV", bg_color)
       },
       {
         id: "vod_categories",
         type: "url",
-        title: "🎬 Movies & VOD Categories",
+        title: "🎬 Movies & VOD Categories", 
         description: "Browse movies and video on demand by category",
-        backdropPath: createFallbackImage("Movies", bg_color),
-        link: `forward://getVodCategories?host=${host}&username=${username}&password=${password}&bg_color=${bg_color || ''}`
+        backdropPath: createFallbackImage("Movies", bg_color)
       },
       {
         id: "series_categories",
         type: "url",
         title: "📺 TV Series Categories",
-        description: "Browse TV series and episodes by category",
-        backdropPath: createFallbackImage("Series", bg_color),
-        link: `forward://getSeriesCategories?host=${host}&username=${username}&password=${password}&bg_color=${bg_color || ''}`
+        description: "Browse TV series and episodes by category", 
+        backdropPath: createFallbackImage("Series", bg_color)
       }
     ];
   } catch (error) {
@@ -269,8 +308,7 @@ async function getVodCategories(params = {}) {
     type: "url",
     title: category.category_name,
     description: `Category ID: ${category.category_id}`,
-    backdropPath: createFallbackImage(category.category_name, bg_color),
-    link: `forward://getVodStreams?host=${host}&username=${username}&password=${password}&category_id=${category.category_id}&bg_color=${bg_color || ''}`
+    backdropPath: createFallbackImage(category.category_name, bg_color)
   }));
 }
 
@@ -293,8 +331,7 @@ async function getSeriesCategories(params = {}) {
     type: "url",
     title: category.category_name,
     description: `Category ID: ${category.category_id}`,
-    backdropPath: createFallbackImage(category.category_name, bg_color),
-    link: `forward://getSeriesStreams?host=${host}&username=${username}&password=${password}&category_id=${category.category_id}&bg_color=${bg_color || ''}`
+    backdropPath: createFallbackImage(category.category_name, bg_color)
   }));
 }
 
@@ -365,8 +402,7 @@ async function getVodStreams(params = {}) {
     customHeaders: getDefaultHeaders(),
     mediaType: "movie",
     rating: stream.rating,
-    releaseDate: stream.added,
-    link: `forward://getVodInfo?host=${host}&username=${username}&password=${password}&vod_id=${stream.stream_id}&bg_color=${bg_color || ''}`
+    releaseDate: stream.added
   }));
 }
 
@@ -400,8 +436,7 @@ async function getSeriesStreams(params = {}) {
     posterPath: s.cover,
     mediaType: "tv",
     rating: s.rating,
-    releaseDate: s.releaseDate,
-    link: `forward://getSeriesInfo?host=${host}&username=${username}&password=${password}&series_id=${s.series_id}&bg_color=${bg_color || ''}`
+    releaseDate: s.releaseDate
   }));
 }
 
