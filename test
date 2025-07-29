@@ -1,35 +1,65 @@
-/* ==================  最小可导入示例  ================== */
+/* ==================  第二步：只拉分类  ================== */
 var WidgetMetadata = {
-  id: "xtream_hello",
-  title: "Hello Forward",
-  description: "最小示例，仅返回 1 张固定卡片",
+  id: "xtream_step2",
+  title: "Xtream Step2",
+  description: "仅测试分类入口",
   author: "test",
   site: "https://github.com/InchStudio/ForwardWidgets",
   version: "1.0.0",
   requiredVersion: "0.0.1",
   modules: [
     {
-      title: "Demo",
-      description: "demo",
+      title: "Category Only",
+      description: "",
       requiresWebView: false,
-      functionName: "demo",
+      functionName: "getCats",
       cacheDuration: 60,
-      params: []
+      params: [
+        { name: "host",     type: "input", placeholder: "lot77162.cdngold.me" },
+        { name: "username", type: "input" },
+        { name: "password", type: "input" }
+      ]
     }
   ]
 };
 
-/* 固定返回 1 张卡片 */
-async function demo() {
+/* 仅返回 3 条假数据分类卡片 */
+async function getCats(params) {
+  const { host, username, password } = params;
+  if (!host || !username || !password) throw new Error("必填参数缺失");
+
+  /* 这里用固定假数据，先不真请求，验证结构 */
   return [
     {
-      id: "hello1",
+      id: "cat_live",
+      type: "link",
+      title: "📺 Live",
+      description: "点击查看 Live 列表",
+      posterPath: "https://fakeimg.pl/200x120/1C1C1E/?text=Live",
+      link: "js:getStreamsByCat({type:'live',catId:1,host:'" + host + "',username:'" + username + "',password:'" + password + "'})"
+    },
+    {
+      id: "cat_vod",
+      type: "link",
+      title: "🎬 VOD",
+      description: "点击查看 VOD 列表",
+      posterPath: "https://fakeimg.pl/200x120/1C1C1E/?text=VOD",
+      link: "js:getStreamsByCat({type:'vod',catId:2,host:'" + host + "',username:'" + username + "',password:'" + password + "'})"
+    }
+  ];
+}
+
+/* 二级函数：目前只返回 1 张假卡片 */
+async function getStreamsByCat(params) {
+  return [
+    {
+      id: "fake_stream",
       type: "url",
-      title: "Hello Forward",
-      description: "如果能看到这条，说明模块已正常导入",
-      posterPath: "https://fakeimg.pl/400x225/1C1C1E/FFFFFF?text=Hello",
-      backdropPath: "https://fakeimg.pl/400x225/1C1C1E/FFFFFF?text=Hello",
-      mediaType: "movie",
+      title: "Test Stream",
+      description: "测试流",
+      posterPath: "https://fakeimg.pl/400x225/1C1C1E/FFFFFF?text=Test",
+      backdropPath: "https://fakeimg.pl/400x225/1C1C1E/FFFFFF?text=Test",
+      mediaType: "tv",
       videoUrl: "https://sample-videos.com/10/mp4/2.mp4"
     }
   ];
