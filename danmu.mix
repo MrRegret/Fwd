@@ -1,7 +1,7 @@
 
 var WidgetMetadata = {
-  id: "danmu.mix",
-  title: "五源弹幕",
+  id: "DIYdanmu",
+  title: "DIYdanmu",
   description: "",
   author: "🎁 Discount Code：VEUS",
   site: "https://github.com/InchStudio/ForwardWidgets",
