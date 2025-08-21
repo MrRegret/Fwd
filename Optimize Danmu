@@ -1,0 +1,339 @@
+/**
+ * 优化版弹幕脚本
+ * 采用高效的两步请求策略：
+ * 1. 首次搜索获取animeId并缓存
+ * 2. 根据animeId+集数直接拼接epid请求弹幕
+ * 3. 同番剧后续集数只需1次comment请求
+ */
+
+WidgetMetadata = {
+  id: "danmu.optimized",
+  title: "Optimize Danmu",
+  version: "2.0.0",
+  requiredVersion: "0.0.2",
+  description: "高效获取弹幕数据，支持智能epid推理",
+  author: "🎁 Discount Code：VEUS",
+  site: "",
+  globalParams: [
+    {
+      name: "server",
+      title: "自定义服务器",
+      type: "input",
+      placeholders: [
+        {
+          title: "弹弹play",
+          value: "https://api.dandanplay.net",
+        },
+      ],
+    },
+  ],
+  modules: [
+    {
+      id: "searchDanmu",
+      title: "搜索弹幕",
+      functionName: "searchDanmu",
+      type: "danmu",
+      params: [],
+    },
+    {
+      id: "getComments",
+      title: "获取弹幕",
+      functionName: "getCommentsById",
+      type: "danmu",
+      params: [],
+    },
+  ],
+};
+
+// 内存缓存，存储已搜索的番剧信息
+const animeCache = new Map();
+
+async function searchDanmu(params) {
+  const { tmdbId, type, title, season, episode, link, videoUrl, server } = params;
+
+  // 生成缓存key
+  const cacheKey = `${title}_${type}_${season || ''}`;
+  
+  // 检查缓存
+  if (animeCache.has(cacheKey)) {
+    const cachedAnime = animeCache.get(cacheKey);
+    console.log(`从缓存获取: ${title}`);
+    return {
+      animes: [cachedAnime],
+      fromCache: true
+    };
+  }
+
+  let queryTitle = title;
+
+  try {
+    // 调用弹弹play搜索API
+    const response = await Widget.http.get(
+      `${server}/api/v2/search/anime?keyword=${encodeURIComponent(queryTitle)}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "ForwardWidgets/2.0.0",
+        },
+      }
+    );
+
+    if (!response) {
+      throw new Error("获取数据失败");
+    }
+
+    const data = response.data;
+
+    // 检查API返回状态
+    if (!data.success) {
+      throw new Error(data.errorMessage || "API调用失败");
+    }
+
+    // 过滤并匹配番剧
+    let animes = [];
+    if (data.animes && data.animes.length > 0) {
+      animes = data.animes.filter((anime) => {
+        // 类型匹配
+        if (type === "tv" && (anime.type === "tvseries" || anime.type === "web")) {
+          return true;
+        } else if (type === "movie" && anime.type === "movie") {
+          return true;
+        }
+        return false;
+      });
+
+      // 季数匹配（如果有季数信息）
+      if (season && animes.length > 0) {
+        const matchedAnimes = animes.filter((anime) => {
+          return matchAnimeSeason(anime.animeTitle, title, season);
+        });
+        
+        if (matchedAnimes.length > 0) {
+          animes = matchedAnimes;
+        }
+      }
+
+      // 缓存第一个匹配的结果
+      if (animes.length > 0) {
+        animeCache.set(cacheKey, animes[0]);
+      }
+    }
+
+    return {
+      animes: animes,
+      fromCache: false
+    };
+  } catch (error) {
+    console.error("搜索弹幕失败:", error);
+    throw error;
+  }
+}
+
+async function getCommentsById(params) {
+  const { server, commentId, animeId, link, videoUrl, season, episode, tmdbId, type, title } = params;
+
+  // 如果已有commentId，直接请求
+  if (commentId) {
+    return await fetchDanmuComments(server, commentId);
+  }
+
+  // 如果有animeId，根据集数推理epid
+  if (animeId && episode) {
+    const inferredCommentId = inferEpisodeId(animeId, season, episode);
+    if (inferredCommentId) {
+      try {
+        return await fetchDanmuComments(server, inferredCommentId);
+      } catch (error) {
+        console.warn(`推理的commentId ${inferredCommentId} 请求失败，尝试其他方法`);
+      }
+    }
+  }
+
+  // 如果没有animeId，先搜索获取
+  if (!animeId && title) {
+    try {
+      const searchResult = await searchDanmu({ title, type, season, episode, server });
+      if (searchResult.animes && searchResult.animes.length > 0) {
+        const anime = searchResult.animes[0];
+        const inferredCommentId = inferEpisodeId(anime.animeId, season, episode);
+        if (inferredCommentId) {
+          return await fetchDanmuComments(server, inferredCommentId);
+        }
+      }
+    } catch (error) {
+      console.error("搜索并获取弹幕失败:", error);
+    }
+  }
+
+  console.warn("无法获取弹幕数据，缺少必要参数");
+  return null;
+}
+
+// 辅助函数：获取弹幕评论
+async function fetchDanmuComments(server, commentId) {
+  try {
+    const response = await Widget.http.get(
+      `${server}/api/v2/comment/${commentId}?withRelated=true&chConvert=1`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "ForwardWidgets/2.0.0",
+        },
+      }
+    );
+
+    if (!response) {
+      throw new Error("获取弹幕数据失败");
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error(`获取弹幕失败 (commentId: ${commentId}):`, error);
+    throw error;
+  }
+}
+
+// 辅助函数：推理剧集ID (epid)
+function inferEpisodeId(animeId, season, episode) {
+  if (!animeId || !episode) {
+    return null;
+  }
+
+  // 标准epid计算规则
+  // 大多数情况下：animeId + 集数编号
+  const seasonNum = season ? parseInt(season) : 1;
+  const episodeNum = parseInt(episode);
+  
+  if (isNaN(episodeNum)) {
+    return null;
+  }
+
+  // 常见的epid拼接规则
+  // 规则1: animeId + 集数 (最常见)
+  let commentId = animeId + episodeNum.toString().padStart(2, '0');
+  
+  // 规则2: 如果有多季，可能需要计算偏移
+  if (seasonNum > 1) {
+    // 假设每季12集，这个可以根据实际情况调整
+    const seasonOffset = (seasonNum - 1) * 12;
+    const adjustedEpisode = episodeNum + seasonOffset;
+    commentId = animeId + adjustedEpisode.toString().padStart(2, '0');
+  }
+
+  return commentId;
+}
+
+// 辅助函数：匹配番剧季数
+function matchAnimeSeason(animeTitle, originalTitle, targetSeason) {
+  if (!animeTitle || !targetSeason) {
+    return false;
+  }
+
+  // 检查标题是否包含原标题
+  if (!animeTitle.toLowerCase().includes(originalTitle.toLowerCase())) {
+    return false;
+  }
+
+  const seasonNum = parseInt(targetSeason);
+  if (isNaN(seasonNum)) {
+    return false;
+  }
+
+  // 使用空格分割标题
+  const titleParts = animeTitle.split(/\s+/);
+  
+  for (const part of titleParts) {
+    // 匹配阿拉伯数字
+    const arabicMatch = part.match(/\d+/);
+    if (arabicMatch && parseInt(arabicMatch[0]) === seasonNum) {
+      return true;
+    }
+
+    // 匹配中文数字
+    const chineseMatch = part.match(/[一二三四五六七八九十壹貳參肆伍陸柒捌玖拾]+/);
+    if (chineseMatch && convertChineseNumber(chineseMatch[0]) === seasonNum) {
+      return true;
+    }
+
+    // 匹配罗马数字
+    const romanMatch = part.match(/^(I{1,3}|IV|VI{0,3}|IX|X)$/i);
+    if (romanMatch && convertRomanNumber(romanMatch[0]) === seasonNum) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// 中文数字转换函数（优化版）
+function convertChineseNumber(chineseNumber) {
+  if (/^\d+$/.test(chineseNumber)) {
+    return parseInt(chineseNumber);
+  }
+  
+  const digits = {
+    '零': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
+    '六': 6, '七': 7, '八': 8, '九': 9,
+    '壹': 1, '貳': 2, '參': 3, '肆': 4, '伍': 5,
+    '陸': 6, '柒': 7, '捌': 8, '玖': 9
+  };
+  
+  const units = {
+    '十': 10, '百': 100, '千': 1000,
+    '拾': 10, '佰': 100, '仟': 1000
+  };
+  
+  let result = 0;
+  let current = 0;
+  let lastUnit = 1;
+  
+  for (let i = 0; i < chineseNumber.length; i++) {
+    const char = chineseNumber[i];
+    
+    if (digits[char] !== undefined) {
+      current = digits[char];
+    } else if (units[char] !== undefined) {
+      const unit = units[char];
+      if (current === 0) current = 1;
+      
+      if (unit >= lastUnit) {
+        result = current * unit;
+      } else {
+        result += current * unit;
+      }
+      
+      lastUnit = unit;
+      current = 0;
+    }
+  }
+  
+  if (current > 0) {
+    result += current;
+  }
+  
+  return result;
+}
+
+// 罗马数字转换函数
+function convertRomanNumber(roman) {
+  const romanMap = {
+    'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5,
+    'VI': 6, 'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10
+  };
+  
+  return romanMap[roman.toUpperCase()] || 0;
+}
+
+// 清除缓存的工具函数（可选）
+function clearAnimeCache() {
+  animeCache.clear();
+  console.log("番剧缓存已清除");
+}
+
+// 获取缓存状态的工具函数（调试用）
+function getCacheStatus() {
+  return {
+    size: animeCache.size,
+    keys: Array.from(animeCache.keys())
+  };
+}
