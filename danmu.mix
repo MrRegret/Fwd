@@ -11,12 +11,12 @@ var WidgetMetadata = {
   globalParams: [
     {
       name: "server1",
-      title: "弹弹play服务器",
+      title: "默认",
       type: "input",
       placeholders: [
         {
-          title: "弹弹play",
-          value: "https://api.dandanplay.net",
+          title: "示例",
+          value: "",
         },
       ],
     },
